@@ -120,28 +120,32 @@ const Battle = {
       const container = document.getElementById('qte-container');
       const circle = document.getElementById('qte-circle');
       
+      if (!container || !circle) { resolve(false); return; }
       container.classList.remove('hidden');
       circle.style.animation = 'none';
-      void circle.offsetWidth;
-      
-      const duration = 1200 / this.speedMultiplier;
-      circle.style.animation = `qteShrink ${duration}ms linear forwards`;
+
+      const duration = Math.max(650, 1200 / Math.max(1, this.speedMultiplier || 1));
+      circle.style.setProperty('--qte-duration', `${duration}ms`);
+      // Restart only the QTE animation; avoid forcing a layout read on every tap.
+      requestAnimationFrame(() => {
+        circle.style.animation = `qteShrink ${duration}ms linear forwards`;
+      });
 
       let resolved = false;
-      const timeoutId = setTimeout(() => {
-        if (resolved) return;
-        resolved = true;
-        container.classList.add('hidden');
-        resolve(false); 
-      }, duration);
-
-      circle.onclick = () => {
+      const finish = (success) => {
         if (resolved) return;
         resolved = true;
         clearTimeout(timeoutId);
+        circle.removeEventListener('pointerdown', onPress);
+        circle.removeEventListener('click', onClick);
         container.classList.add('hidden');
-        resolve(true); 
+        resolve(success);
       };
+      const onPress = (event) => { event.preventDefault(); finish(true); };
+      const onClick = () => finish(true);
+      const timeoutId = setTimeout(() => finish(false), duration);
+      circle.addEventListener('pointerdown', onPress, { once: true });
+      circle.addEventListener('click', onClick, { once: true });
     });
   },
 

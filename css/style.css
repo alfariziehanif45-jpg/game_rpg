@@ -384,7 +384,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  pointer-events: none; /* Biarkan klik tembus ke circle */
+  pointer-events: auto; /* Pastikan overlay QTE menerima sentuhan di HP */
 }
 
 .qte-container.hidden {
@@ -587,12 +587,14 @@ button, .filter-btn, .eq-item-card, .qte-circle {
 
 /* Keep animations and expensive effects minimal on devices that request it. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *:not(.qte-circle), *:not(.qte-circle)::before, *:not(.qte-circle)::after {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
+  /* QTE must keep its timing animation even when reduced motion is enabled. */
+  .qte-circle { animation-duration: var(--qte-duration, 1200ms) !important; animation-iteration-count: 1 !important; }
 }
 
 /* Low-power mode: avoid constant particle and glow repainting on touch devices. */
