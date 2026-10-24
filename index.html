@@ -5,14 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>RPG Gacha — Idle Heroes</title>
   <link rel="stylesheet" href="css/style.css">
-  
-  <!-- KONFIGURASI PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#7c5cff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="RPG Gacha">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3409/3409248.png">
 </head>
 <body>
 
@@ -20,9 +14,10 @@
   <div class="start-box">
     <h1 class="start-title">RPG GACHA</h1>
     <p class="start-sub">Masukkan nama kamu untuk memulai petualangan</p>
-    <input type="text" id="playerNameInput" placeholder="Nama kamu..." maxlength="20" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <input type="text" id="playerNameInput" placeholder="Nama kamu..." maxlength="20" autocomplete="off">
     <button id="startBtn" class="primary">MULAI GAME</button>
     <p id="startError" class="start-error"></p>
+    <p class="start-hint">💡 Hint: coba masukkan nama <b>admin</b> 😉</p>
   </div>
 </div>
 
@@ -41,29 +36,21 @@
     <button data-page="roster">📜 Karakter</button>
     <button data-page="team">🛡️ Tim</button>
     <button data-page="battle">⚔️ Bertarung</button>
+    <button data-page="craft">⚒️ Crafting</button>
+    <button data-page="shop">🛒 Toko</button>
   </nav>
 
   <main>
     <!-- HOME -->
     <section id="page-home" class="page active">
       <h2>Selamat Datang, Petualang!</h2>
-      <p class="muted">Kumpulkan karakter lewat gacha, susun tim terbaik, dan grinding untuk menaklukkan semua stage.</p>
+      <p class="muted">Kumpulkan karakter, susun tim, dan kumpulkan material untuk crafting!</p>
       <div class="card">
         <h3>📊 Statistik</h3>
         <p>Total Gacha: <b id="statPulls">0</b></p>
         <p>Karakter Dimiliki: <b id="statRoster">0</b></p>
         <p>Stage Terbuka: <b id="statStage">1</b></p>
         <p>Pity Counter: <b id="statPity">0</b> / 40</p>
-      </div>
-      <div class="card">
-        <h3>🎯 Cara Bermain</h3>
-        <ol class="muted">
-          <li>Buka tab <b>Gacha</b> untuk mendapatkan karakter baru.</li>
-          <li>Atur komposisi di tab <b>Tim</b> (maks 4 karakter).</li>
-          <li>Pilih stage di tab <b>Bertarung</b> lalu kalahkan musuh.</li>
-          <li>Dapatkan EXP & Gold → level up → buka stage berikutnya.</li>
-          <li>Buka tab Karakter untuk melakukan <b>Evolusi (Naik Bintang)</b>.</li>
-        </ol>
       </div>
       <button id="resetBtn" class="danger">🗑️ Reset Progres</button>
     </section>
@@ -78,7 +65,6 @@
           <button id="pull1Btn" class="primary">Summon 1x<br><small>💰 100 Gold</small></button>
           <button id="pull10Btn" class="primary gold">Summon 10x<br><small>💎 450 Gems</small></button>
         </div>
-        <p class="muted small">10x dijamin minimal 1 karakter 4★ atau lebih!</p>
       </div>
       <div id="gachaResult" class="hidden"></div>
     </section>
@@ -86,7 +72,6 @@
     <!-- ROSTER -->
     <section id="page-roster" class="page">
       <h2>📜 Koleksi Karakter</h2>
-      
       <div class="filters-container">
         <div class="filter-group">
           <span class="filter-label">Rarity:</span>
@@ -95,16 +80,7 @@
           <button class="filter-btn" onclick="setFilter('rarity', '4', this)">4★</button>
           <button class="filter-btn" onclick="setFilter('rarity', '5', this)">5★</button>
         </div>
-        <div class="filter-group">
-          <span class="filter-label">Urutkan:</span>
-          <select id="sortEvoSelect" class="filter-select" onchange="setFilter('sort', this.value)">
-            <option value="none">Default</option>
-            <option value="evo_desc">Bintang Tertinggi</option>
-            <option value="evo_asc">Bintang Terendah</option>
-          </select>
-        </div>
       </div>
-
       <div id="rosterGrid" class="char-grid"></div>
     </section>
 
@@ -112,7 +88,37 @@
     <section id="page-team" class="page">
       <h2>🛡️ Susun Tim <small class="muted">(maks 4)</small></h2>
       <div id="teamSlots" class="char-grid team-slots"></div>
-      <h3>Karakter Tersedia</h3>
+      
+      <!-- UI RELIC DI TIM -->
+      <h3 style="margin-top:20px;">🔮 Relic Tim</h3>
+      <div id="teamRelicSlot"></div>
+
+      <h3 style="margin-top:20px;">Karakter Tersedia</h3>
+      
+      <div class="filters-container">
+        <div class="filter-group">
+          <span class="filter-label">Role:</span>
+          <select id="teamRoleFilter" class="filter-select" onchange="setTeamFilter('role', this.value)">
+            <option value="all">Semua Role</option>
+            <option value="DPS">DPS</option>
+            <option value="Tanker">Tanker</option>
+            <option value="Healer">Healer</option>
+            <option value="Support">Support</option>
+            <option value="Debuffer">Debuffer</option>
+            <option value="Summoner">Summoner</option>
+            <option value="Hybrid">Hybrid</option>
+            <option value="True Blade">True Blade</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Bintang:</span>
+          <button class="filter-btn active" onclick="setTeamFilter('rarity', 'all', this)">Semua</button>
+          <button class="filter-btn" onclick="setTeamFilter('rarity', '3', this)">3★</button>
+          <button class="filter-btn" onclick="setTeamFilter('rarity', '4', this)">4★</button>
+          <button class="filter-btn" onclick="setTeamFilter('rarity', '5', this)">5★</button>
+        </div>
+      </div>
+
       <div id="teamRoster" class="char-grid"></div>
     </section>
 
@@ -121,21 +127,61 @@
       <h2>⚔️ Pilih Stage</h2>
       <div id="stageList" class="stage-list"></div>
     </section>
+
+    <!-- CRAFTING -->
+    <section id="page-craft" class="page">
+      <h2>⚒️ Meja Crafting</h2>
+      <div class="card">
+        <h3>🧪 Material Kamu</h3>
+        <div id="materialList" class="muted small" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+      </div>
+      <h3>Resep Potion</h3>
+      <div id="potionRecipes" class="stage-list"></div>
+      <h3>Resep Equipment Spesial</h3>
+      <div id="equipRecipes" class="stage-list"></div>
+    </section>
+
+    <!-- TOKO RELIC -->
+    <section id="page-shop" class="page">
+      <h2>🛒 Toko Relic</h2>
+      <div class="card" style="margin-bottom: 20px;">
+        <h3>💰 Saldo Gold Kamu: <span id="shopGoldDisplay">0</span></h3>
+        <p class="muted small">Gunakan Gold yang didapat dari pertarungan untuk membeli Relic.</p>
+      </div>
+      <div id="shopList" class="stage-list"></div>
+    </section>
   </main>
 </div>
 
+<!-- BATTLE OVERLAY -->
 <div id="battleOverlay" class="battle-overlay hidden">
   <div class="battle-top">
     <div class="round-info">Round <span id="roundNum">1</span></div>
-    <button id="fleeBtn" class="danger small-btn">🏃 Kabur</button>
+    <div style="display: flex; gap: 8px;">
+      <button id="speedBtn" class="primary small-btn" style="background: var(--accent-2); color: #1a1d29; border: none;" onclick="Battle.toggleSpeed()">⏩ 1x</button>
+      <button id="fleeBtn" class="danger small-btn">🏃 Kabur</button>
+    </div>
   </div>
+  
   <div id="enemyRow" class="unit-row"></div>
   <div id="battleLog" class="battle-log"></div>
   <div id="allyRow" class="unit-row"></div>
+  
+  <div id="potionBar" class="potion-bar"></div>
+  
   <div id="actionBar" class="action-bar"></div>
+
+  <!-- QTE DODGE OVERLAY -->
+  <div id="qte-container" class="qte-container hidden">
+    <div class="qte-text">KLIK UNTUK MENGHINDAR!</div>
+    <div id="qte-circle" class="qte-circle"></div>
+  </div>
 </div>
 
+<!-- MODALS -->
 <div id="battleResult" class="modal hidden"></div>
+<div id="equipModal" class="modal hidden"></div>
+<div id="skillModal" class="modal hidden"></div>
 
 <script src="js/data.js"></script>
 <script src="js/player.js"></script>
@@ -144,13 +190,5 @@
 <script src="js/main.js"></script>
 <script src="js/evolve.js"></script>
 <script src="js/start.js"></script>
-
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW gagal:', err));
-    });
-  }
-</script>
 </body>
 </html>

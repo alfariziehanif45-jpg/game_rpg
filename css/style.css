@@ -262,3 +262,245 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   .gacha-btns button { width: 100%; max-width: 280px; }
   .banner { padding: 16px; }
 }
+
+/* ==========================================
+   TOMBOL SKIP STAGE
+   ========================================== */
+.stage-card button {
+  /* Memastikan tombol sejajar dengan baik */
+  transition: all 0.2s;
+}
+.stage-card button:hover {
+  filter: brightness(1.15);
+  transform: translateY(-2px);
+}
+
+/* ==========================================
+   EQUIPMENT UI
+   ========================================== */
+.eq-slot {
+  flex: 1;
+  background: var(--panel-2);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.eq-inventory {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.eq-item-card {
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.eq-item-card:hover {
+  filter: brightness(1.2);
+  transform: translateX(3px);
+}
+
+/* ==========================================
+   POTION BAR (UI BATTLE)
+   ========================================== */
+.potion-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.potion-bar button:hover {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: #fff !important;
+}
+
+/* ==========================================
+   NOX (TRUE BLADE) SPECIAL UI
+   ========================================== */
+.nox-card {
+  border-color: #ffb547 !important;
+  box-shadow: 0 0 15px rgba(255, 181, 71, 0.3) !important;
+  background: linear-gradient(145deg, #1a1d29, #2a1a1d) !important;
+}
+
+.nox-card:hover {
+  box-shadow: 0 0 25px rgba(255, 181, 71, 0.5) !important;
+}
+
+.nox-card .char-name {
+  background: linear-gradient(90deg, #ffb547, #ff4d5e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ==========================================
+   BOSS UI STYLING
+   ========================================== */
+.boss-card {
+  border-color: #ff4d5e !important;
+  box-shadow: 0 0 20px rgba(255, 77, 94, 0.4), inset 0 0 10px rgba(255, 77, 94, 0.2) !important;
+  background: linear-gradient(145deg, #1a1d29, #2a1215) !important;
+  transform: scale(1.05); /* Sedikit lebih besar dari unit biasa */
+  z-index: 10;
+}
+
+.boss-card .unit-name {
+  color: #ff4d5e;
+  text-shadow: 0 0 5px rgba(255, 77, 94, 0.5);
+  font-size: 0.9rem; /* Sedikit lebih besar */
+}
+
+/* ==========================================
+   QTE DODGE SYSTEM
+   ========================================== */
+.qte-container {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Biarkan klik tembus ke circle */
+}
+
+.qte-container.hidden {
+  display: none !important;
+}
+
+.qte-text {
+  color: #ff4d5e;
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px #ff4d5e;
+  animation: pulseText 0.5s infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes pulseText {
+  from { transform: scale(1); opacity: 0.8; }
+  to { transform: scale(1.1); opacity: 1; }
+}
+
+.qte-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 6px solid #ff4d5e;
+  background: rgba(255, 77, 94, 0.3);
+  box-shadow: 0 0 30px #ff4d5e;
+  cursor: pointer;
+  pointer-events: auto; /* Hanya circle yang bisa diklik */
+  position: relative;
+}
+
+.qte-circle::after {
+  content: '⚡';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3rem;
+  pointer-events: none;
+}
+
+/* Animasi mengecil (dipanggil via JS) */
+@keyframes qteShrink {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+/* ==========================================
+   FILTER & SORTING UI
+   ========================================== */
+.filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--panel);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.filter-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover { background: var(--border); }
+.filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.filter-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ==========================================
+   SKILL MODAL UI
+   ========================================== */
+.skill-item {
+  background: var(--panel-2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+
+.skill-item:last-child {
+  margin-bottom: 0;
+}
