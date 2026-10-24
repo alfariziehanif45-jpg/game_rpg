@@ -1,3 +1,7 @@
+/* ==========================================================
+   battle.js — Sistem Pertarungan (Balanced Damage Scaling)
+   ========================================================== */
+
 const Battle = {
   active: false,
   stageId: 1,
@@ -33,7 +37,10 @@ const Battle = {
       };
     });
 
+    // Generate Musuh
     this.enemies = this.generateEnemies(stageId);
+    
+    // Gabungkan dan Urutkan berdasarkan SPD
     this.turnQueue = [...this.allies, ...this.enemies].sort((a, b) => b.spd - a.spd);
     
     this.log(`⚔️ Pertarungan dimulai! Stage ${stageId}`);
@@ -43,24 +50,31 @@ const Battle = {
 
   generateEnemies(stageId) {
     const count = Math.min(7, 2 + stageId);
-    const loopMultiplier = Math.pow(1.5, Math.floor((stageId - 1) / 5)); 
+    
+    // Scaling Linear (Tidak eksponensial agar tidak terlalu overpowered)
+    const loopMultiplier = 1 + Math.floor((stageId - 1) / 5) * 0.2; // Hanya naik 20% tiap 5 stage
+    const hpScale = (1 + (stageId * 0.25)) * loopMultiplier;
+    const atkScale = (1 + (stageId * 0.1)) * loopMultiplier; 
+    const defScale = (1 + (stageId * 0.08)) * loopMultiplier;
+    
+    const poolKeys = Object.keys(MONSTERS);
     const enemies = [];
-    const enemyPool = [
-      { name: 'Slime', emoji: '🟢', baseHp: 50, baseAtk: 10, baseDef: 5, baseSpd: 8 },
-      { name: 'Goblin', emoji: '👺', baseHp: 80, baseAtk: 15, baseDef: 8, baseSpd: 12 },
-      { name: 'Serigala', emoji: '🐺', baseHp: 100, baseAtk: 20, baseDef: 6, baseSpd: 15 },
-      { name: 'Tengkorak', emoji: '💀', baseHp: 120, baseAtk: 18, baseDef: 15, baseSpd: 10 },
-      { name: 'Ksatria Hitam', emoji: '🛡️', baseHp: 200, baseAtk: 30, baseDef: 25, baseSpd: 12 }
-    ];
 
     for (let i = 0; i < count; i++) {
-      const template = enemyPool[Math.floor(Math.random() * enemyPool.length)];
-      const scale = loopMultiplier * (1 + (stageId * 0.1)); 
+      const template = MONSTERS[poolKeys[Math.floor(Math.random() * poolKeys.length)]];
+      
       enemies.push({
-        id: `e_${i}`, name: template.name, emoji: template.emoji, isEnemy: true,
-        hp: Math.floor(template.baseHp * scale), maxHp: Math.floor(template.baseHp * scale),
-        atk: Math.floor(template.baseAtk * scale), def: Math.floor(template.baseDef * scale), spd: Math.floor(template.baseSpd * scale),
-        evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
+        id: `e_${i}`,
+        name: template.name,
+        emoji: template.emoji,
+        isEnemy: true,
+        hp: Math.floor(template.hp * hpScale),
+        maxHp: Math.floor(template.hp * hpScale),
+        atk: Math.floor(template.atk * atkScale),
+        def: Math.floor(template.def * defScale),
+        spd: Math.floor(template.spd * (1 + stageId * 0.02)),
+        evo: 1, cooldown: 0,
+        buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
       });
     }
     return enemies;
@@ -118,7 +132,7 @@ const Battle = {
 
     if (skillId !== 'strike') {
       if (!actor.skillCooldowns) actor.skillCooldowns = {};
-      actor.skillCooldowns[skillId] = 2; // Cooldown 2 giliran
+      actor.skillCooldowns[skillId] = 2;
     }
 
     const aliveEnemies = this.enemies.filter(e => e.hp > 0);
@@ -128,44 +142,47 @@ const Battle = {
     if (skill.target === 'enemy' && aliveEnemies.length > 0) {
       target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
     } else if (skill.target === 'ally' && aliveAllies.length > 0) {
-      target = aliveAllies.sort((a,b) => (a.hp/a.maxHp) - (b.hp/b.maxHp))[0]; // Heal yang paling sekarat
+      target = aliveAllies.sort((a,b) => (a.hp/a.maxHp) - (b.hp/b.maxHp))[0];
     }
 
     this.log(`<span class="eff-good">${actor.name}</span> menggunakan <b>${skill.name}</b>!`);
 
-    // Hitung Buff Actor
     let actorAtk = actor.atk;
     if (actor.buffs && actor.buffs.atk > 0) actorAtk = Math.floor(actorAtk * 1.4);
 
     // --- LOGIKA EFEK SKILL ---
     if (skill.type === 'damage') {
+      const processDamage = (targetUnit) => {
+        let targetDef = targetUnit.def;
+        if (targetUnit.buffs && targetUnit.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
+        
+        // RUMUS MITIGASI: Semakin tinggi DEF, semakin kecil damage yang masuk (maksimal 99% redaman)
+        const mitigation = targetDef / (targetDef + 100);
+        let dmg = Math.max(1, Math.floor((actorAtk * skill.power) * (1 - mitigation)));
+        
+        targetUnit.hp = Math.max(0, targetUnit.hp - dmg);
+        this.log(`💥 ${targetUnit.name} menerima ${dmg} DMG.`);
+        if (targetUnit.hp === 0) this.log(`💀 ${targetUnit.name} tumbang!`);
+        return dmg;
+      };
+
+      let totalDamageDealt = 0;
+
       if (skill.aoe) {
         aliveEnemies.forEach(e => {
-          let targetDef = e.def;
-          if (e.buffs && e.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
-          
-          let dmg = Math.max(1, Math.floor((actorAtk * skill.power) - targetDef));
-          e.hp = Math.max(0, e.hp - dmg);
-          this.log(`💥 ${e.name} menerima ${dmg} DMG.`);
-          if (e.hp === 0) this.log(`💀 ${e.name} tumbang!`);
+          totalDamageDealt += processDamage(e);
         });
       } else if (target) {
-        let targetDef = target.def;
-        if (target.buffs && target.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
-
-        let dmg = Math.max(1, Math.floor((actorAtk * skill.power) - targetDef));
-        target.hp = Math.max(0, target.hp - dmg);
-        this.log(`💥 ${target.name} menerima ${dmg} DMG.`);
-        if (target.hp === 0) this.log(`💀 ${target.name} tumbang!`);
+        totalDamageDealt += processDamage(target);
       }
       
       // Efek Tambahan
-      if (skillId === 'drain_strike') {
-        let heal = Math.floor(actor.atk * 0.5);
+      if (skillId === 'drain_strike' && totalDamageDealt > 0) {
+        let heal = Math.floor(totalDamageDealt * 0.5);
         actor.hp = Math.min(actor.maxHp, actor.hp + heal);
         this.log(`💚 ${actor.name} menyerap HP (+${heal}).`);
-      } else if (skillId === 'sun_arrow') {
-        let heal = Math.floor(actor.atk * 0.8);
+      } else if (skillId === 'sun_arrow' && totalDamageDealt > 0) {
+        let heal = Math.floor(totalDamageDealt * 0.5);
         const weakest = aliveAllies.sort((a,b)=>a.hp-b.hp)[0];
         if (weakest) {
           weakest.hp = Math.min(weakest.maxHp, weakest.hp + heal);
@@ -229,7 +246,6 @@ const Battle = {
   },
 
   enemyAction(actor) {
-    // Cek apakah ada Tanker yang memakai Taunt
     const tauntTarget = this.allies.find(a => a.hp > 0 && a.buffs && a.buffs.taunt);
     let target;
     if (tauntTarget) {
@@ -246,7 +262,9 @@ const Battle = {
     let targetDef = target.def;
     if (target.buffs && target.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
 
-    let damage = Math.max(1, enemyAtk - targetDef);
+    // RUMUS MITIGASI DAMAGE MUSUH
+    const mitigation = targetDef / (targetDef + 100);
+    let damage = Math.max(1, Math.floor(enemyAtk * (1 - mitigation)));
     
     // Cek Shield
     if (target.buffs && target.buffs.shield > 0) {
@@ -292,6 +310,7 @@ const Battle = {
       if (skill.type === 'damage') btnClass = 'ult-btn';
       if (skill.type === 'heal') btnClass = 'heal-btn';
       if (skill.type === 'buff') btnClass = 'buff-btn';
+      if (skill.type === 'debuff') btnClass = 'debuff-btn';
       if (skill.type === 'summon') btnClass = 'summon-btn';
 
       let cdText = cd > 0 ? ` (CD: ${cd})` : '';
