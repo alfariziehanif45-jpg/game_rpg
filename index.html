@@ -8,7 +8,23 @@
 </head>
 <body>
 
-<div id="app">
+<!-- ========================================== -->
+<!-- START SCREEN (INPUT NAMA & CHEAT)          -->
+<!-- ========================================== -->
+<div id="startScreen" class="start-screen">
+  <div class="start-box">
+    <h1 class="start-title">RPG GACHA</h1>
+    <p class="start-sub">Masukkan nama kamu untuk memulai petualangan</p>
+    <input type="text" id="playerNameInput" placeholder="Nama kamu..." maxlength="20" autocomplete="off">
+    <button id="startBtn" class="primary">MULAI GAME</button>
+    <p id="startError" class="start-error"></p>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- GAME APP (Disembunyikan dulu)              -->
+<!-- ========================================== -->
+<div id="app" style="display: none;">
   <header>
     <div class="logo">⚔️ RPG GACHA</div>
     <div class="resources">
@@ -102,10 +118,13 @@
 <!-- BATTLE RESULT MODAL -->
 <div id="battleResult" class="modal hidden"></div>
 
+<!-- SCRIPTS -->
 <script src="js/data.js"></script>
 <script src="js/player.js"></script>
 <script src="js/gacha.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/main.js"></script>
+<!-- Script Start Screen & Cheat (MUST BE LAST) -->
+<script src="js/start.js"></script>
 </body>
 </html>
