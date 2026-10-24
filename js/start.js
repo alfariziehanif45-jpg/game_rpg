@@ -8,7 +8,9 @@
   const appScreen = document.getElementById('app');
 
   function startGame(name) {
-    const cleanName = name.trim();
+    // KUNCI 1: Paksa jadi huruf kecil semua dan hapus spasi (Anti Auto-Capitalize HP)
+    const cleanName = name.trim().toLowerCase();
+
     if (!cleanName) {
       startError.textContent = 'Nama tidak boleh kosong!';
       return;
@@ -23,9 +25,9 @@
       appScreen.style.display = 'flex'; 
     }
 
-    // Jalankan Cheat jika nama = admin
+    // KUNCI 2: Cek cheat dengan nama yang sudah dibersihkan
     try {
-      if (cleanName.toLowerCase() === 'admin') {
+      if (cleanName === 'admin') {
         activateGodMode();
         showCheatToast();
       }
@@ -33,7 +35,7 @@
       console.warn("Cheat error:", err);
     }
 
-    // Render Game
+    // Render Game Awal
     try {
       if (typeof window.initGame === 'function') window.initGame();
       if (typeof window.renderAll === 'function') window.renderAll();
@@ -44,38 +46,34 @@
   }
 
   // ==========================================
-  // ULTIMATE GOD MODE CHEAT
+  // ULTIMATE GOD MODE CHEAT (MOBILE OPTIMIZED)
   // ==========================================
   function activateGodMode() {
-    console.log('[CHEAT] Admin mode activated!');
+    console.log('[CHEAT] Admin mode activated on Mobile!');
     
-    // 1. Cegat fungsi alert agar pop-up error tidak muncul
+    // Blokir alert error "Gems tidak cukup"
     const originalAlert = window.alert;
     window.alert = function(msg) {
-      if (msg.includes("tidak cukup") || msg.includes("Gems") || msg.includes("Gold")) {
+      if (msg.includes("tidak cukup") || msg.includes("Gems") || msg.includes("Gold") || msg.includes("gagal")) {
         console.log("Blocked error popup:", msg);
-        return; // Abaikan popup error
+        return; 
       }
       originalAlert(msg);
     };
 
-    // 2. Fungsi Scanner & Injector Global
     function injectCheatValues() {
       const MAX_VAL = 999999999;
       
-      // Pindai semua variabel global (state, player, gameData, dll)
+      // Suntik semua variabel global
       for (let key in window) {
         try {
           let obj = window[key];
           if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-            // Suntik nilai langsung ke properti objek
             if ('gems' in obj) obj.gems = MAX_VAL;
             if ('gold' in obj) obj.gold = MAX_VAL;
             if ('gem' in obj) obj.gem = MAX_VAL;
             if ('diamond' in obj) obj.diamond = MAX_VAL;
-            if ('coins' in obj) obj.coins = MAX_VAL;
             
-            // Suntik ke nested object (jika ada)
             if (obj.player && typeof obj.player === 'object') {
               if ('gems' in obj.player) obj.player.gems = MAX_VAL;
               if ('gold' in obj.player) obj.player.gold = MAX_VAL;
@@ -88,7 +86,7 @@
         } catch (e) {}
       }
 
-      // 3. Tembak LocalStorage
+      // Update localStorage
       try {
         for (let i = 0; i < localStorage.length; i++) {
           let k = localStorage.key(i);
@@ -103,22 +101,24 @@
         }
       } catch(e){}
 
-      // 4. Update Tampilan
+      // Paksa update teks di layar
       const goldEl = document.getElementById('goldDisplay');
       const gemEl = document.getElementById('gemDisplay');
       if (goldEl) goldEl.innerText = `💰 ${MAX_VAL.toLocaleString()}`;
       if (gemEl) gemEl.innerText = `💎 ${MAX_VAL.toLocaleString()}`;
+      
+      // Panggil fungsi update UI game (jika ada) agar sinkron
+      if (typeof window.updateUI === 'function') window.updateUI();
     }
 
-    // Jalankan pengintaian setiap 100ms
+    // Jalankan secepat kilat (50ms) agar tidak di-reset oleh HP
     injectCheatValues();
-    setInterval(injectCheatValues, 100);
+    setInterval(injectCheatValues, 50);
   }
 
-  // --- TOAST NOTIFIKASI ---
   function showCheatToast() {
     const toast = document.createElement('div');
-    toast.textContent = '🔥 CHEAT ADMIN AKTIF! Gold & Gems tak terbatas!';
+    toast.textContent = '🔥 CHEAT ADMIN AKTIF!';
     toast.style.cssText = `
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #ffb547, #e08f1a); color: #1a1d29;
@@ -130,12 +130,11 @@
       toast.style.opacity = '0';
       toast.style.transition = 'opacity 0.5s';
       setTimeout(() => toast.remove(), 500);
-    }, 5000);
+    }, 4000);
   }
 
   startBtn.addEventListener('click', () => startGame(nameInput.value));
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') startGame(nameInput.value);
   });
-  nameInput.focus();
 })();
