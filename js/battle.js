@@ -711,12 +711,21 @@ const Battle = {
   log(msg) {
     const logEl = document.getElementById('battleLog');
     if (!logEl) return;
+
+    // Messages intentionally contain limited inline formatting (span/b). Render
+    // that formatting instead of exposing literal HTML tags in the battle log.
+    const wasNearBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 48;
     const line = document.createElement('div');
-    line.textContent = String(msg);
+    line.innerHTML = String(msg)
+      .replace(/<\s*(script|style|iframe|object)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/javascript\s*:/gi, '');
     logEl.appendChild(line);
-    // Keep the latest 100 entries so long battles stay smooth on phones.
-    while (logEl.childElementCount > 100) logEl.firstElementChild.remove();
-    logEl.scrollTop = logEl.scrollHeight;
+
+    // A bounded log prevents long battles from creating thousands of DOM nodes.
+    while (logEl.childElementCount > 60) logEl.firstElementChild.remove();
+    // Avoid forcing a layout/scroll calculation when the player is reading older lines.
+    if (wasNearBottom) logEl.scrollTop = logEl.scrollHeight;
   },
 
   checkEnd() {
