@@ -13,47 +13,31 @@
   --success: #3ddc84;
 }
 
-/* ==========================================
-   KUNCI FULL SCREEN DI HP (TIDAK BISA DI-SCROLL)
-   ========================================== */
-html, body {
-  height: 100%;
-  height: 100dvh; /* Dynamic Viewport Height untuk HP */
-  width: 100%;
-  overflow: hidden; /* Kunci layar utama agar tidak bisa digeser */
-  position: fixed; /* Mencegah efek "bounce" saat di-scroll di iOS/Android */
+body {
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: radial-gradient(circle at top, #1a1d29, #0a0c12 60%);
   color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 40px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-/* Struktur Flexbox untuk layar penuh */
-#app { 
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  max-width: 1100px; 
-  margin: 0 auto; 
-  /* Padding aman untuk HP berponi (Notch) */
-  padding: max(8px, env(safe-area-inset-top)) 12px max(8px, env(safe-area-inset-bottom)) 12px; 
-}
+#app { max-width: 1100px; margin: 0 auto; padding: 12px; }
 
 header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 16px; background: var(--panel);
-  border-radius: 12px; margin-bottom: 12px;
-  border: 1px solid var(--border);
-  flex-shrink: 0; /* Header tidak boleh mengecil */
+  border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border);
 }
 .logo { font-weight: 800; font-size: 1.2rem; letter-spacing: 1px;
   background: linear-gradient(90deg, #7c5cff, #ffb547);
   -webkit-background-clip: text; background-clip: text; color: transparent; }
 .resources { display: flex; gap: 16px; font-weight: 600; }
 
-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; flex-shrink: 0; }
+nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; width: 100%; }
 nav button {
-  flex: 1; min-width: 80px; padding: 12px 8px;
+  flex: 1; min-width: 90px; padding: 12px 8px;
   background: var(--panel); color: var(--muted);
   border: 1px solid var(--border); border-radius: 10px;
   cursor: pointer; font-weight: 600; font-size: 0.9rem;
@@ -62,14 +46,7 @@ nav button {
 nav button:hover { background: var(--panel-2); color: var(--text); }
 nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* AREA MAIN (Hanya bagian ini yang bisa di-scroll) */
-main {
-  flex: 1; /* Mengisi sisa ruang layar */
-  min-height: 0; /* TRIK PENTING agar flexbox bisa di-scroll */
-  overflow-y: auto; /* Scroll hanya di dalam area ini */
-  -webkit-overflow-scrolling: touch; /* Scroll halus di iOS */
-  padding-bottom: 20px;
-}
+main { display: block; padding-bottom: 20px; width: 100%; }
 
 .page { display: none; animation: fadeIn 0.25s; }
 .page.active { display: block; }
@@ -80,262 +57,356 @@ h3 { margin: 16px 0 10px; font-size: 1.05rem; }
 .muted { color: var(--muted); }
 .small { font-size: 0.8rem; }
 
-.card {
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px; margin-bottom: 12px;
-}
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
 .card p { margin: 6px 0; }
 .card ol { padding-left: 20px; line-height: 1.9; }
 
-button.primary, button.danger {
-  padding: 14px 20px; border-radius: 10px; border: none;
-  cursor: pointer; font-weight: 700; font-size: 1rem;
-  transition: transform 0.1s, filter 0.15s;
-}
+button.primary, button.danger { padding: 14px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; font-size: 1rem; transition: transform 0.1s, filter 0.15s; }
 button.primary { background: linear-gradient(135deg, #7c5cff, #5c3cdf); color: #fff; }
 button.primary.gold { background: linear-gradient(135deg, #ffb547, #e08f1a); color: #1a1d29; }
 button.danger { background: var(--danger); color: #fff; }
 button.primary:hover, button.danger:hover { filter: brightness(1.15); transform: translateY(-1px); }
 button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-/* GACHA */
-.banner {
-  background: linear-gradient(135deg, #241a4d, #3b2a6e);
-  border: 1px solid #5c4bb0; border-radius: 16px;
-  padding: 24px; text-align: center; margin-bottom: 16px;
-}
-.banner-title { font-size: 1.3rem; font-weight: 800; letter-spacing: 2px;
-  color: #ffd97d; margin-bottom: 8px; text-shadow: 0 0 20px #ffb54766; }
+.banner { background: linear-gradient(135deg, #241a4d, #3b2a6e); border: 1px solid #5c4bb0; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 16px; }
+.banner-title { font-size: 1.3rem; font-weight: 800; letter-spacing: 2px; color: #ffd97d; margin-bottom: 8px; text-shadow: 0 0 20px #ffb54766; }
 .gacha-btns { display: flex; gap: 12px; justify-content: center; margin: 16px 0; flex-wrap: wrap; }
 
-#gachaResult, .modal {
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px; text-align: center;
-}
+#gachaResult, .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: center; }
 .gacha-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 16px 0; }
-.gacha-card {
-  width: 130px; padding: 12px; border-radius: 12px;
-  background: var(--panel-2); border: 2px solid var(--border);
-  animation: pop 0.3s backwards;
-}
+.gacha-card { width: 130px; padding: 12px; border-radius: 12px; background: var(--panel-2); border: 2px solid var(--border); animation: pop 0.3s backwards; }
 @keyframes pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-/* RARITY */
 .rar-3 { border-color: #4a90d9 !important; box-shadow: 0 0 12px #4a90d933; }
 .rar-4 { border-color: #b06bff !important; box-shadow: 0 0 14px #b06bff44; }
 .rar-5 { border-color: #ffb547 !important; box-shadow: 0 0 20px #ffb54766; }
-
 .rarity-stars { color: #ffb547; font-size: 0.75rem; letter-spacing: 1px; }
 
-/* CHARACTER CARDS */
-.char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.char-card {
-  background: var(--panel); border: 2px solid var(--border);
-  border-radius: 12px; padding: 12px; text-align: center; position: relative;
+/* ==========================================
+   KARTU KARAKTER (Diperbarui untuk Statistik)
+   ========================================== */
+.char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.char-card { 
+  background: var(--panel); border: 2px solid var(--border); border-radius: 12px; 
+  padding: 12px; text-align: center; position: relative; display: flex; flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
+.char-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
 .char-emoji { font-size: 2.2rem; margin: 6px 0; }
 .char-name { font-weight: 700; font-size: 0.9rem; }
-.char-sub { font-size: 0.72rem; color: var(--muted); margin: 4px 0; }
-.char-lv { font-size: 0.78rem; color: var(--accent-2); font-weight: 700; }
-.char-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; font-size: 0.68rem; margin-top: 8px; color: var(--muted); }
-.char-card .mini-btn {
-  margin-top: 8px; width: 100%; padding: 6px; font-size: 0.75rem; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer;
+.char-sub { font-size: 0.72rem; color: var(--muted); margin: 2px 0 6px 0; }
+.char-lv { font-size: 0.8rem; color: var(--accent-2); font-weight: 800; }
+
+/* Grid untuk ATK, DEF, HP, SPD */
+.char-stats { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 4px; 
+  font-size: 0.7rem; 
+  margin-top: 8px; 
+  color: var(--text); 
+  background: rgba(0,0,0,0.2); 
+  padding: 6px; 
+  border-radius: 6px;
 }
+
+/* Teks EXP */
+.char-exp {
+  font-size: 0.65rem;
+  color: var(--accent-2);
+  background: rgba(255, 181, 71, 0.1);
+  padding: 4px;
+  border-radius: 6px;
+  margin-top: 6px;
+  font-weight: bold;
+}
+
+.char-card .mini-btn { margin-top: 8px; width: 100%; padding: 6px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; }
 .char-card .mini-btn:hover { background: var(--accent); }
 .char-card.in-team { border-color: var(--success) !important; }
 
-.team-slots { min-height: 60px; }
-.empty-slot {
-  border: 2px dashed var(--border); border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--muted); font-size: 0.8rem; min-height: 140px;
-}
+/* EVOLVE UI & PARTIKEL (OPTIMIZED) */
+.evo-container { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.evo-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; position: relative; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); z-index: 1; }
+.star-yellow { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.6); border-color: rgba(255,215,0,0.3); }
+.star-red { color: #ff4d5e; text-shadow: 0 0 10px rgba(255,77,94,0.8); border-color: rgba(255,77,94,0.4); }
+.star-blue { color: #00e5ff; text-shadow: 0 0 12px rgba(0,229,255,0.9); border-color: rgba(0,229,255,0.6); box-shadow: 0 0 15px rgba(0,229,255,0.3); }
 
-/* STAGE LIST */
+/* PARTIKEL: Dioptimalkan untuk HP */
+.particle-element { position: absolute; top: 50%; left: 50%; width: 2px; height: 2px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%) translateZ(0); z-index: -1; animation: pulseParticle 1.5s infinite alternate; will-change: transform, box-shadow; }
+@keyframes pulseParticle { 0% { opacity: 0.4; transform: translate(-50%, -50%) translateZ(0) scale(0.8); } 100% { opacity: 1; transform: translate(-50%, -50%) translateZ(0) scale(1.2); } }
+.particles-1 .particle-element { box-shadow: 0 -15px 3px #00e5ff, 0 15px 3px #00e5ff, -20px 0 3px #00e5ff, 20px 0 3px #00e5ff; }
+.particles-2 .particle-element { box-shadow: 0 -15px 4px #00e5ff, 0 15px 4px #00e5ff, -20px 0 4px #00e5ff, 20px 0 4px #00e5ff, -15px -15px 3px #00e5ff, 15px 15px 3px #00e5ff, -15px 15px 3px #00e5ff, 15px -15px 3px #00e5ff; }
+.particles-3 .particle-element { box-shadow: 0 -15px 5px #00e5ff, 0 15px 5px #00e5ff, -20px 0 5px #00e5ff, 20px 0 5px #00e5ff, -15px -15px 4px #00e5ff, 15px 15px 4px #00e5ff, -15px 15px 4px #00e5ff, 15px -15px 4px #00e5ff, 0 -25px 6px #00e5ff, 0 25px 6px #00e5ff, -25px 0 6px #00e5ff, 25px 0 6px #00e5ff; }
+.particles-4 .particle-element { box-shadow: 0 -15px 6px #00e5ff, 0 15px 6px #00e5ff, -20px 0 6px #00e5ff, 20px 0 6px #00e5ff, -15px -15px 5px #00e5ff, 15px 15px 5px #00e5ff, -15px 15px 5px #00e5ff, 15px -15px 5px #00e5ff, 0 -30px 8px #00e5ff, 0 30px 8px #00e5ff, -30px 0 8px #00e5ff, 30px 0 8px #00e5ff, -25px -25px 6px #00e5ff, 25px 25px 6px #00e5ff; }
+.particles-5 .particle-element { box-shadow: 0 -15px 8px #00e5ff, 0 15px 8px #00e5ff, -20px 0 8px #00e5ff, 20px 0 8px #00e5ff, -15px -15px 6px #00e5ff, 15px 15px 6px #00e5ff, -15px 15px 6px #00e5ff, 15px -15px 6px #00e5ff, 0 -35px 10px #00e5ff, 0 35px 10px #00e5ff, -35px 0 10px #00e5ff, 35px 0 10px #00e5ff, -25px -25px 8px #00e5ff, 25px 25px 8px #00e5ff, -25px 25px 8px #00e5ff, 25px -25px 8px #00e5ff, -40px -15px 6px #00e5ff, 40px 15px 6px #00e5ff, -40px 15px 6px #00e5ff, 40px -15px 6px #00e5ff; }
+
+.evolve-btn { background: var(--accent) !important; color: #fff !important; font-weight: bold; }
+
+.team-slots { min-height: 60px; }
+.empty-slot { border: 2px dashed var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.8rem; min-height: 160px; }
+
 .stage-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-.stage-card {
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px;
-}
+.stage-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
 .stage-card.locked { opacity: 0.45; }
 .stage-card h4 { margin-bottom: 6px; }
 .stage-card .enemies { font-size: 0.85rem; margin: 8px 0; color: var(--muted); }
 .stage-card button { width: 100%; padding: 10px; margin-top: 8px; }
 .boss-tag { color: var(--danger); font-weight: 700; font-size: 0.75rem; }
 
-/* BATTLE OVERLAY */
-.battle-overlay {
-  position: fixed; inset: 0; background: rgba(8, 10, 16, 0.98);
-  z-index: 100; display: flex; flex-direction: column;
-  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) 12px; 
-  max-width: 900px; margin: 0 auto;
-  overflow-y: auto;
-}
+.battle-overlay { position: fixed; inset: 0; background: #0f1117; z-index: 9999; display: flex; flex-direction: column; padding: 12px; max-width: 900px; margin: 0 auto; overflow-y: auto; }
 .battle-overlay.hidden { display: none; }
 .battle-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .round-info { font-weight: 700; color: var(--accent-2); }
 .small-btn { padding: 8px 14px !important; font-size: 0.8rem !important; }
 
 .unit-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 6px 0; }
-.unit-card {
-  flex: 1 1 180px; max-width: 220px;
-  display: flex; gap: 8px; align-items: center;
-  background: var(--panel); border: 2px solid var(--border);
-  border-radius: 10px; padding: 8px; transition: all 0.2s;
-  cursor: default;
-}
+.unit-card { flex: 1 1 180px; max-width: 220px; display: flex; gap: 8px; align-items: center; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 8px; transition: all 0.2s; cursor: default; }
 .unit-card.current { border-color: var(--accent-2); box-shadow: 0 0 16px #ffb54766; transform: translateY(-3px); }
 .unit-card.dead { opacity: 0.3; filter: grayscale(1); }
-.unit-card.rar-4 { border-color: #b06bff; }
-.unit-card.rar-5 { border-color: #ffb547; }
 .unit-emoji { font-size: 1.8rem; }
 .unit-info { flex: 1; min-width: 0; }
-.unit-name { font-size: 0.78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unit-name { font-size: 0.78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
 .unit-meta { font-size: 0.65rem; color: var(--muted); }
 
-.hp-bar, .mp-bar {
-  position: relative; height: 12px; background: #0a0c12;
-  border-radius: 6px; overflow: hidden; margin: 3px 0;
-}
-.mp-bar { height: 6px; }
+.hp-bar, .mp-bar { position: relative; height: 12px; background: #0a0c12; border-radius: 6px; overflow: hidden; margin: 3px 0; }
 .hp-fill { height: 100%; background: linear-gradient(90deg, #3ddc84, #23a35f); transition: width 0.3s; }
-.mp-fill { height: 100%; background: linear-gradient(90deg, #4aa8ff, #2563eb); transition: width 0.3s; }
-.bar-text {
-  position: absolute; inset: 0; font-size: 0.6rem; text-align: center;
-  line-height: 12px; color: #fff; text-shadow: 0 1px 2px #000;
-  font-weight: 700;
-}
-.buff-icon { margin-left: 3px; }
+.bar-text { position: absolute; inset: 0; font-size: 0.6rem; text-align: center; line-height: 12px; color: #fff; text-shadow: 0 1px 2px #000; font-weight: 700; }
 
-.battle-log {
-  flex: 1; min-height: 80px; max-height: 180px; overflow-y: auto;
-  background: #0a0c12; border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px; margin: 8px 0;
-  font-size: 0.8rem; line-height: 1.7;
-}
-.battle-log .eff-good { color: var(--success); font-weight: 700; }
-.battle-log .eff-bad { color: var(--muted); }
+/* INDIKATOR STATUS (Buff / Debuff) */
+.status-icon { font-size: 0.6rem; padding: 2px 4px; border-radius: 4px; font-weight: 800; }
+.status-icon.shield { background: #4aa8ff; color: #fff; }
+.status-icon.taunt { background: #ffb547; color: #000; }
+.status-icon.debuff { background: #ff4d5e; color: #fff; }
 
-.action-bar { min-height: 90px; }
-.actor-label { text-align: center; margin-bottom: 8px; color: var(--accent-2); font-size: 0.9rem; }
-.skill-btn {
-  display: block; width: 100%; text-align: left;
-  background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 14px; margin-bottom: 6px;
-  color: var(--text); cursor: pointer; transition: all 0.15s;
-}
-.skill-btn:hover:not(.disabled) { background: var(--accent); border-color: var(--accent); }
-.skill-btn.disabled { opacity: 0.4; cursor: not-allowed; }
-.skill-name { font-weight: 700; font-size: 0.9rem; }
-.skill-cost { float: right; font-size: 0.75rem; color: var(--accent-2); }
-.skill-desc { display: block; font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
-.hint { text-align: center; color: var(--muted); padding: 20px; }
-.hint button {
-  margin-left: 10px; padding: 6px 12px; border-radius: 6px;
-  background: var(--danger); color: #fff; border: none; cursor: pointer;
-}
+.battle-log { flex: 1; min-height: 80px; max-height: 180px; overflow-y: auto; background: #0a0c12; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin: 8px 0; font-size: 0.8rem; line-height: 1.7; }
+.eff-good { color: var(--success); font-weight: 700; }
+.eff-bad { color: var(--muted); }
 
-/* RESULT MODAL */
-.modal {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  z-index: 200; min-width: 320px; max-width: 90vw;
-  box-shadow: 0 20px 60px #000;
-}
+/* ==========================================
+   ACTION BAR (SKILL ROLE)
+   ========================================== */
+.action-bar { min-height: 140px; background: var(--panel); padding: 16px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); }
+.actor-label { text-align: center; margin-bottom: 12px; color: var(--text); font-size: 1rem; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 8px; }
+.actor-label b { color: var(--accent-2); }
+.action-buttons { display: flex; flex-direction: column; gap: 8px; }
+.skill-btn { display: flex; align-items: center; width: 100%; text-align: left; border: none; border-radius: 12px; padding: 10px 14px; cursor: pointer; transition: transform 0.1s, filter 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+.skill-btn:active:not(.disabled) { transform: scale(0.98); }
+.skill-btn.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+
+/* Warna Tombol Berdasarkan Tipe Skill */
+.basic-btn { background: linear-gradient(135deg, #2e3348, #1a1d29); border: 1px solid #4a5070; color: #fff; }
+.basic-btn:hover:not(.disabled) { background: linear-gradient(135deg, #3b4260, #222636); border-color: #7c5cff; }
+
+.ult-btn { background: linear-gradient(135deg, #ff4d5e, #b01c2b); border: 1px solid #ff7b88; color: #fff; }
+.ult-btn:hover:not(.disabled) { background: linear-gradient(135deg, #ff6b7a, #d12333); box-shadow: 0 0 15px rgba(255, 77, 94, 0.4); }
+
+.heal-btn { background: linear-gradient(135deg, #3ddc84, #23a35f); border: 1px solid #3ddc84; color: #fff; }
+.heal-btn:hover:not(.disabled) { background: linear-gradient(135deg, #4bef95, #2ebd6d); box-shadow: 0 0 15px rgba(61,220,132,0.4); }
+
+.buff-btn { background: linear-gradient(135deg, #4aa8ff, #2563eb); border: 1px solid #4aa8ff; color: #fff; }
+.buff-btn:hover:not(.disabled) { background: linear-gradient(135deg, #5eb5ff, #3474f5); box-shadow: 0 0 15px rgba(74,168,255,0.4); }
+
+.debuff-btn { background: linear-gradient(135deg, #a06bff, #7c5cff); border: 1px solid #a06bff; color: #fff; }
+.debuff-btn:hover:not(.disabled) { background: linear-gradient(135deg, #b07bff, #8c6cff); box-shadow: 0 0 15px rgba(160,107,255,0.4); }
+
+.summon-btn { background: linear-gradient(135deg, #ffb547, #e08f1a); border: 1px solid #ffb547; color: #1a1d29; }
+.summon-btn:hover:not(.disabled) { background: linear-gradient(135deg, #ffc557, #f09f2a); box-shadow: 0 0 15px rgba(255,181,71,0.4); }
+
+.skill-icon { font-size: 1.8rem; margin-right: 15px; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 50%; }
+.skill-text { display: flex; flex-direction: column; flex: 1; }
+.skill-name { font-weight: 800; font-size: 1rem; letter-spacing: 0.5px; }
+.skill-desc { font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-top: 2px; }
+
+/* MODAL & LAINNYA */
+.modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; min-width: 320px; max-width: 90vw; box-shadow: 0 20px 60px #000; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: center; }
 .modal.hidden { display: none; }
 .modal .win { color: var(--success); font-size: 1.6rem; margin-bottom: 12px; }
 .modal .lose { color: var(--danger); font-size: 1.6rem; margin-bottom: 12px; }
-.modal .levelup { color: var(--accent-2); font-size: 0.85rem; margin-top: 10px; }
 .result-btns { display: flex; gap: 10px; margin-top: 18px; justify-content: center; }
-.result-btns button {
-  padding: 12px 18px; border-radius: 10px; border: none;
-  cursor: pointer; font-weight: 700; background: var(--accent); color: #fff;
-}
+.result-btns button { padding: 12px 18px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; background: var(--accent); color: #fff; }
 .result-btns button:last-child { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
 
 .hidden { display: none !important; }
 
-/* ==========================================================
-   START SCREEN
-   ========================================================== */
-.start-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at top, #1a1d29, #0a0c12 60%);
-  padding: 20px;
-}
-
+/* START SCREEN */
+.start-screen { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top, #1a1d29, #0a0c12 60%); padding: 20px; }
 .start-screen.hidden { display: none !important; }
-
-.start-box {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 32px 24px;
-  max-width: 420px;
-  width: 100%;
-  text-align: center;
-  box-shadow: 0 20px 60px #000;
-}
-
-.start-title {
-  font-size: 1.8rem;
-  font-weight: 800;
-  letter-spacing: 2px;
-  background: linear-gradient(90deg, #7c5cff, #ffb547);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  margin-bottom: 8px;
-}
-
+.start-box { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 32px 24px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px #000; }
+.start-title { font-size: 1.8rem; font-weight: 800; letter-spacing: 2px; background: linear-gradient(90deg, #7c5cff, #ffb547); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 8px; }
 .start-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
-
-#playerNameInput {
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--text);
-  font-size: 1rem;
-  outline: none;
-  margin-bottom: 12px;
-  transition: border-color 0.15s;
-}
+#playerNameInput { width: 100%; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 1rem; outline: none; margin-bottom: 12px; transition: border-color 0.15s; }
 #playerNameInput:focus { border-color: var(--accent); }
-
 #startBtn { width: 100%; padding: 14px; font-size: 1rem; }
-
 .start-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 20px; }
 .start-hint { color: var(--muted); font-size: 0.75rem; margin-top: 16px; }
 
-/* ==========================================================
-   RESPONSIVE ORIENTATION
-   ========================================================== */
 @media (orientation: portrait) {
-  #app { padding-left: 8px; padding-right: 8px; }
+  #app { padding: 8px; }
   header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
   .resources { width: 100%; justify-content: space-between; }
-  nav button { flex: 1 1 auto; min-width: 80px; font-size: 0.8rem; padding: 10px 6px; }
-  .char-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  nav { gap: 4px; }
+  nav button { flex: 1 1 30%; min-width: 70px; font-size: 0.75rem; padding: 10px 4px; }
+  .char-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   .stage-list { grid-template-columns: 1fr; }
-  .unit-card { flex: 1 1 140px; max-width: 180px; }
   .gacha-btns { flex-direction: column; align-items: center; }
   .gacha-btns button { width: 100%; max-width: 280px; }
   .banner { padding: 16px; }
 }
 
 @media (orientation: landscape) {
-  #app { max-width: 1200px; }
   header { flex-direction: row; align-items: center; }
   nav button { flex: 1; min-width: 100px; }
-  .char-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .char-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
   .stage-list { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-  .unit-card { flex: 1 1 200px; max-width: 240px; }
   .gacha-btns { flex-direction: row; }
 }
+
+/* (Tambahkan ini di bagian paling bawah file CSS kamu) */
+
+/* ==========================================
+   FILTER & SORTING UI
+   ========================================== */
+.filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--panel);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.filter-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover {
+  background: var(--border);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.filter-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ==========================================
+   TOMBOL MAX EVOLVE
+   ========================================== */
+.max-evolve-btn {
+  background: linear-gradient(135deg, #ffb547, #e08f1a) !important;
+  color: #1a1d29 !important;
+  font-weight: 800 !important;
+  border: none !important;
+  box-shadow: 0 0 10px rgba(255, 181, 71, 0.3);
+}
+
+.max-evolve-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* ==========================================
+   FILTER & SORTING UI
+   ========================================== */
+.filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--panel);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.filter-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover { background: var(--border); }
+.filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.filter-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ==========================================
+   TOMBOL MAX EVOLVE
+   ========================================== */
+.max-evolve-btn {
+  background: linear-gradient(135deg, #ffb547, #e08f1a) !important;
+  color: #1a1d29 !important;
+  font-weight: 800 !important;
+  border: none !important;
+  box-shadow: 0 0 10px rgba(255, 181, 71, 0.3);
+}
+
+.max-evolve-btn:hover { filter: brightness(1.1); }

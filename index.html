@@ -2,14 +2,22 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <!-- META VIEWPORT UNTUK FULL SCREEN HP -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>RPG Gacha — Idle Heroes</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    #app { display: block !important; width: 100% !important; overflow-x: hidden !important; }
+    header { display: flex !important; flex-direction: row !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; }
+    nav { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; width: 100% !important; }
+    main { width: 100% !important; display: block !important; }
+    @media (max-width: 600px) {
+      header { flex-direction: column !important; align-items: flex-start !important; }
+      nav button { flex: 1 1 30% !important; font-size: 0.8rem !important; }
+    }
+  </style>
 </head>
 <body>
 
-<!-- START SCREEN -->
 <div id="startScreen" class="start-screen">
   <div class="start-box">
     <h1 class="start-title">RPG GACHA</h1>
@@ -21,7 +29,6 @@
   </div>
 </div>
 
-<!-- GAME APP -->
 <div id="app" style="display: none;">
   <header>
     <div class="logo">⚔️ RPG GACHA</div>
@@ -58,6 +65,7 @@
           <li>Atur komposisi di tab <b>Tim</b> (maks 4 karakter).</li>
           <li>Pilih stage di tab <b>Bertarung</b> lalu kalahkan musuh.</li>
           <li>Dapatkan EXP & Gold → level up → buka stage berikutnya.</li>
+          <li>Buka tab Karakter untuk melakukan <b>Evolusi (Naik Bintang)</b>.</li>
         </ol>
       </div>
       <button id="resetBtn" class="danger">🗑️ Reset Progres</button>
@@ -81,6 +89,26 @@
     <!-- ROSTER -->
     <section id="page-roster" class="page">
       <h2>📜 Koleksi Karakter</h2>
+      
+      <!-- FILTER & SORTING -->
+      <div class="filters-container">
+        <div class="filter-group">
+          <span class="filter-label">Rarity:</span>
+          <button class="filter-btn active" onclick="setFilter('rarity', 'all', this)">Semua</button>
+          <button class="filter-btn" onclick="setFilter('rarity', '3', this)">3★</button>
+          <button class="filter-btn" onclick="setFilter('rarity', '4', this)">4★</button>
+          <button class="filter-btn" onclick="setFilter('rarity', '5', this)">5★</button>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Urutkan:</span>
+          <select id="sortEvoSelect" class="filter-select" onchange="setFilter('sort', this.value)">
+            <option value="none">Default</option>
+            <option value="evo_desc">Bintang Tertinggi</option>
+            <option value="evo_asc">Bintang Terendah</option>
+          </select>
+        </div>
+      </div>
+
       <div id="rosterGrid" class="char-grid"></div>
     </section>
 
@@ -100,7 +128,6 @@
   </main>
 </div>
 
-<!-- BATTLE OVERLAY -->
 <div id="battleOverlay" class="battle-overlay hidden">
   <div class="battle-top">
     <div class="round-info">Round <span id="roundNum">1</span></div>
@@ -112,16 +139,14 @@
   <div id="actionBar" class="action-bar"></div>
 </div>
 
-<!-- BATTLE RESULT MODAL -->
 <div id="battleResult" class="modal hidden"></div>
 
-<!-- SCRIPTS -->
 <script src="js/data.js"></script>
 <script src="js/player.js"></script>
 <script src="js/gacha.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/main.js"></script>
-<!-- Script Start Screen & Cheat -->
+<script src="js/evolve.js"></script>
 <script src="js/start.js"></script>
 </body>
 </html>

@@ -1,465 +1,395 @@
-/* ==========================================================
-   battle.js — Mesin combat turn-based
-   ========================================================== */
-
 const Battle = {
-  state: null,
-  currentActor: null,
+  active: false,
+  stageId: 1,
+  enemies: [],
+  allies: [],
+  turnQueue: [],
+  turnIndex: 0,
+  round: 1,
+  waitingForInput: false,
 
-  // ==================== START ====================
   start(stageId) {
-    const stage = STAGES.find(s => s.id === stageId);
-    if (!stage) return;
-
-    const teamInsts = Player.getTeamUnits();
-    if (teamInsts.length === 0) { alert('Tim kamu kosong! Atur tim dulu di tab Tim.'); return; }
-
-    const allies = teamInsts.map(inst => this.makeAllyUnit(inst));
-    const enemies = stage.enemies.map((mid, i) => this.makeEnemyUnit(mid, stage.lv, i));
-
-    this.state = {
-      stage, allies, enemies,
-      order: [], turnIdx: 0, round: 0,
-      log: [], over: false, awaiting: false,
-      pending: null, rewards: null,
-    };
-
+    this.active = true;
+    this.stageId = stageId;
+    this.round = 1;
+    this.turnIndex = 0;
+    this.waitingForInput = false;
+    
     document.getElementById('battleOverlay').classList.remove('hidden');
-    this.addLog(`⚔️ <b>${stage.name}</b> — Pertempuran dimulai!`);
-    this.newRound();
+    document.getElementById('battleResult').classList.add('hidden');
+    document.getElementById('battleLog').innerHTML = '';
+    
+    // Siapkan Tim Pemain
+    this.allies = Player.getTeamUnits().map(u => {
+      const stats = Player.computeStats(u);
+      return {
+        uid: u.uid, charId: u.charId, isEnemy: false,
+        name: CHARACTERS[u.charId].name,
+        emoji: CHARACTERS[u.charId].emoji || '👤',
+        hp: stats.maxHp, maxHp: stats.maxHp,
+        atk: stats.atk, def: stats.def, spd: stats.spd,
+        evo: u.evo || 1,
+        cooldown: 0,
+        skillCooldowns: {},
+        buffs: { atk: 0, def: 0, shield: 0, taunt: false }
+      };
+    });
+
+    // Generate Musuh (Endless Mode)
+    this.enemies = this.generateEnemies(stageId);
+    
+    // Gabungkan dan Urutkan berdasarkan SPD
+    this.turnQueue = [...this.allies, ...this.enemies].sort((a, b) => b.spd - a.spd);
+    
+    this.log(`⚔️ Pertarungan dimulai! Stage ${stageId}`);
     this.render();
-    this.nextTurn();
+    this.processTurn();
   },
 
-  makeAllyUnit(inst) {
-    const c = CHARACTERS[inst.charId];
-    const s = Player.computeStats(inst);
-    return {
-      side: 'ally', uid: inst.uid, charId: inst.charId,
-      name: c.name, emoji: c.emoji, rarity: c.rarity,
-      element: c.element, level: inst.level,
-      maxHp: s.maxHp, hp: s.maxHp,
-      atk: s.atk, def: s.def, spd: s.spd,
-      maxMp: 100, mp: 40,
-      skills: c.skills, buffs: [], alive: true,
-    };
+  generateEnemies(stageId) {
+    const count = Math.min(7, 2 + stageId);
+    const loopMultiplier = Math.pow(1.5, Math.floor((stageId - 1) / 5)); 
+    const enemies = [];
+    const enemyPool = [
+      { name: 'Slime', emoji: '🟢', baseHp: 50, baseAtk: 10, baseDef: 5, baseSpd: 8 },
+      { name: 'Goblin', emoji: '👺', baseHp: 80, baseAtk: 15, baseDef: 8, baseSpd: 12 },
+      { name: 'Serigala', emoji: '🐺', baseHp: 100, baseAtk: 20, baseDef: 6, baseSpd: 15 },
+      { name: 'Tengkorak', emoji: '💀', baseHp: 120, baseAtk: 18, baseDef: 15, baseSpd: 10 },
+      { name: 'Ksatria Hitam', emoji: '🛡️', baseHp: 200, baseAtk: 30, baseDef: 25, baseSpd: 12 }
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const template = enemyPool[Math.floor(Math.random() * enemyPool.length)];
+      const scale = loopMultiplier * (1 + (stageId * 0.1)); 
+      enemies.push({
+        id: `e_${i}`, name: template.name, emoji: template.emoji, isEnemy: true,
+        hp: Math.floor(template.baseHp * scale), maxHp: Math.floor(template.baseHp * scale),
+        atk: Math.floor(template.baseAtk * scale), def: Math.floor(template.baseDef * scale), spd: Math.floor(template.baseSpd * scale),
+        evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, shield: 0, taunt: false }
+      });
+    }
+    return enemies;
   },
 
-  makeEnemyUnit(monsterId, lv, idx) {
-    const m = MONSTERS[monsterId];
-    const scale = 1 + 0.18 * (lv - 1);
-    return {
-      side: 'enemy', idx, monsterId,
-      name: m.name, emoji: m.emoji,
-      element: m.element, level: lv,
-      maxHp: Math.floor(m.hp * scale), hp: Math.floor(m.hp * scale),
-      atk: Math.floor(m.atk * scale),
-      def: Math.floor(m.def * scale),
-      spd: m.spd,
-      maxMp: 100, mp: 30,
-      skills: m.skills, buffs: [], alive: true,
-      exp: m.exp, gold: m.gold, boss: !!m.boss,
-    };
-  },
+  processTurn() {
+    if (!this.active) return;
+    if (this.checkEnd()) return;
 
-  // ==================== TURN FLOW ====================
-  newRound() {
-    const st = this.state;
-    st.round++;
-    st.turnIdx = 0;
-    const alive = [...st.allies, ...st.enemies].filter(u => u.alive);
-    alive.sort((a, b) => this.getStat(b, 'spd') - this.getStat(a, 'spd'));
-    st.order = alive;
+    let actor = this.turnQueue[this.turnIndex];
+    if (actor.hp <= 0) { this.nextTurn(); return; }
+
+    this.render();
+
+    if (actor.isEnemy) {
+      document.getElementById('actionBar').innerHTML = `<div class="hint">Musuh sedang menyerang...</div>`;
+      setTimeout(() => this.enemyAction(actor), 1000);
+    } else {
+      this.waitingForInput = true;
+      this.renderActionBar(actor);
+    }
   },
 
   nextTurn() {
-    const st = this.state;
-    if (!st || st.over) return;
-
-    let unit = null;
-    let guard = 0;
-    while (guard++ < 1000) {
-      if (st.turnIdx >= st.order.length) {
-        this.newRound();
-        if (st.order.length === 0) return;
-        continue;
-      }
-      const u = st.order[st.turnIdx];
-      if (!u.alive) { st.turnIdx++; continue; }
-      unit = u;
-      break;
+    this.turnIndex++;
+    if (this.turnIndex >= this.turnQueue.length) {
+      this.turnIndex = 0;
+      this.round++;
+      
+      // Kurangi durasi buff/debuff & cooldown skill
+      this.turnQueue.forEach(u => { 
+        if (u.cooldown > 0) u.cooldown--;
+        if (u.skillCooldowns) {
+          for (let s in u.skillCooldowns) {
+            if (u.skillCooldowns[s] > 0) u.skillCooldowns[s]--;
+          }
+        }
+        if (u.buffs) {
+          if (u.buffs.atk > 0) u.buffs.atk--;
+          if (u.buffs.def > 0) u.buffs.def--;
+        }
+      });
     }
-    if (!unit) return;
-
-    this.currentActor = unit;
-    unit.mp = Math.min(unit.maxMp, unit.mp + 20); // regen MP
-
-    if (unit.side === 'ally') {
-      st.awaiting = true;
-      this.render();
-    } else {
-      st.awaiting = false;
-      this.render();
-      setTimeout(() => this.enemyAct(unit), 650);
-    }
+    this.processTurn();
   },
 
-  enemyAct(unit) {
-    const st = this.state;
-    if (!st || st.over || !unit.alive) { this.finishTurn(); return; }
+  playerAction(actor, skillId) {
+    if (!this.waitingForInput) return;
+    this.waitingForInput = false;
+    document.getElementById('actionBar').innerHTML = '';
 
-    const affordable = unit.skills.filter(k => (SKILLS[k].mp || 0) <= unit.mp);
-    const pool = affordable.length ? affordable : ['strike'];
-    const skillKey = pool[Math.floor(Math.random() * pool.length)];
-    const skill = SKILLS[skillKey];
-
-    let target = null;
-    if (skill.type === 'damage' && !skill.aoe) {
-      const alive = st.allies.filter(u => u.alive);
-      if (!alive.length) { this.checkEnd(); return; }
-      target = alive[Math.floor(Math.random() * alive.length)];
-    } else if (skill.type === 'heal') {
-      const alive = st.enemies.filter(u => u.alive).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
-      target = alive[0];
-    } else if (skill.type === 'buff') {
-      target = unit;
-    }
-
-    this.performSkill(unit, skillKey, target);
-    this.finishTurn();
-  },
-
-  finishTurn() {
-    const st = this.state;
-    if (!st || st.over) return;
-
-    const unit = st.order[st.turnIdx];
-    if (unit) this.tickBuffs(unit);
-
-    st.turnIdx++;
-    st.awaiting = false;
-    st.pending = null;
-    this.render();
-
-    if (this.checkEnd()) return;
-    setTimeout(() => this.nextTurn(), 450);
-  },
-
-  tickBuffs(unit) {
-    unit.buffs = unit.buffs.filter(b => { b.turns--; return b.turns > 0; });
-  },
-
-  // ==================== COMBAT MATH ====================
-  getStat(unit, stat) {
-    let mult = 1;
-    (unit.buffs || []).forEach(b => { if (b.stat === stat) mult += b.amount; });
-    return Math.floor((unit[stat] || 0) * mult);
-  },
-
-  elementMultiplier(atkEl, defEl) {
-    if (!atkEl || atkEl === 'none') return 1;
-    const e = ELEMENTS[atkEl];
-    if (!e) return 1;
-    if (e.strong === defEl) return 1.5;
-    if (e.weak === defEl) return 0.75;
-    return 1;
-  },
-
-  calcDamage(attacker, defender, skill) {
-    const atk = this.getStat(attacker, 'atk');
-    const def = this.getStat(defender, 'def');
-    const base = atk * (skill.power || 1) * (100 / (100 + def));
-    const elem = this.elementMultiplier(skill.element, defender.element);
-    const variance = 0.9 + Math.random() * 0.2;
-    return Math.max(1, Math.floor(base * elem * variance));
-  },
-
-  calcHeal(healer, skill) {
-    const atk = this.getStat(healer, 'atk');
-    const variance = 0.9 + Math.random() * 0.2;
-    return Math.floor(atk * skill.power * 2 * variance);
-  },
-
-  // ==================== SKILL EXECUTION ====================
-  performSkill(actor, skillKey, target) {
-    const st = this.state;
-    const skill = SKILLS[skillKey];
+    const skill = SKILLS[skillId];
     if (!skill) return;
 
-    actor.mp = Math.max(0, actor.mp - (skill.mp || 0));
+    if (skillId !== 'strike') {
+      if (!actor.skillCooldowns) actor.skillCooldowns = {};
+      actor.skillCooldowns[skillId] = 2; // Cooldown 2 giliran
+    }
 
-    const enemySide = actor.side === 'ally' ? 'enemies' : 'allies';
-    const allySide  = actor.side === 'ally' ? 'allies'  : 'enemies';
+    const aliveEnemies = this.enemies.filter(e => e.hp > 0);
+    const aliveAllies = this.allies.filter(a => a.hp > 0);
 
-    let targets = [];
+    let target = null;
+    if (skill.target === 'enemy' && aliveEnemies.length > 0) {
+      target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+    } else if (skill.target === 'ally' && aliveAllies.length > 0) {
+      target = aliveAllies.sort((a,b) => (a.hp/a.maxHp) - (b.hp/b.maxHp))[0]; // Heal yang paling sekarat
+    }
+
+    this.log(`<span class="eff-good">${actor.name}</span> menggunakan <b>${skill.name}</b>!`);
+
+    // --- LOGIKA EFEK SKILL ---
     if (skill.type === 'damage') {
-      targets = skill.aoe ? st[enemySide].filter(u => u.alive)
-                          : (target && target.alive ? [target] : []);
-    } else if (skill.type === 'heal') {
-      targets = skill.aoe ? st[allySide].filter(u => u.alive)
-                          : (target && target.alive ? [target] : []);
-    } else if (skill.type === 'buff') {
-      targets = skill.target === 'self' ? [actor] : (target ? [target] : [actor]);
-    }
-
-    if (!targets.length) { this.addLog(`❔ ${actor.name} tidak menemukan target.`); return; }
-
-    this.addLog(`<b>${actor.name}</b> menggunakan <b>${skill.name}</b>!`);
-
-    targets.forEach(t => {
-      if (skill.type === 'damage') {
-        const dmg = this.calcDamage(actor, t, skill);
-        t.hp = Math.max(0, t.hp - dmg);
-        const eff = this.elementMultiplier(skill.element, t.element);
-        const effTxt = eff > 1 ? ' <span class="eff-good">(Super Efektif!)</span>'
-                     : eff < 1 ? ' <span class="eff-bad">(Kurang Efektif)</span>' : '';
-        this.addLog(`↳ ${t.name} menerima <b>${dmg}</b> damage${effTxt}`);
-        if (t.hp <= 0 && t.alive) {
-          t.alive = false;
-          this.addLog(`💀 <b>${t.name}</b> tumbang!`);
-        }
-      } else if (skill.type === 'heal') {
-        const amt = this.calcHeal(actor, skill);
-        const before = t.hp;
-        t.hp = Math.min(t.maxHp, t.hp + amt);
-        this.addLog(`↳ ${t.name} pulih <b>${t.hp - before}</b> HP`);
-      } else if (skill.type === 'buff') {
-        t.buffs.push({ stat: skill.stat, amount: skill.amount, turns: skill.turns, name: skill.name });
-        this.addLog(`↳ ${t.name} mendapat <b>${skill.name}</b> (${skill.turns} turn)`);
+      if (skill.aoe) {
+        aliveEnemies.forEach(e => {
+          let dmg = Math.max(1, Math.floor((actor.atk * skill.power) - e.def));
+          e.hp = Math.max(0, e.hp - dmg);
+          this.log(`💥 ${e.name} menerima ${dmg} DMG.`);
+          if (e.hp === 0) this.log(`💀 ${e.name} tumbang!`);
+        });
+      } else if (target) {
+        let dmg = Math.max(1, Math.floor((actor.atk * skill.power) - target.def));
+        target.hp = Math.max(0, target.hp - dmg);
+        this.log(`💥 ${target.name} menerima ${dmg} DMG.`);
+        if (target.hp === 0) this.log(`💀 ${target.name} tumbang!`);
       }
-    });
-
-    this.render();
-  },
-
-  // ==================== END ====================
-  checkEnd() {
-    const st = this.state;
-    const enemiesAlive = st.enemies.some(u => u.alive);
-    const alliesAlive  = st.allies.some(u => u.alive);
-    if (!enemiesAlive) { this.endBattle(true);  return true; }
-    if (!alliesAlive)  { this.endBattle(false); return true; }
-    return false;
-  },
-
-  endBattle(win) {
-    const st = this.state;
-    st.over = true;
-    st.awaiting = false;
-    this.currentActor = null;
-
-    if (win) {
-      let expGain = 0, goldGain = 0;
-      st.enemies.forEach(e => { expGain += e.exp; goldGain += e.gold; });
-      const bonus = 1 + st.stage.lv * 0.05;
-      expGain  = Math.floor(expGain * bonus);
-      goldGain = Math.floor(goldGain * bonus);
-
-      const isFirstClear = st.stage.id >= Player.data.stageProgress;
-
-      Player.addGold(goldGain);
-      Player.completeStage(st.stage.id);
-
-      if (isFirstClear && st.stage.gems) Player.addGems(st.stage.gems);
-
-      const levelUps = [];
-      Player.getTeamUnits().forEach(inst => {
-        const ups = Player.addExp(inst, expGain);
-        if (ups > 0) levelUps.push(`${CHARACTERS[inst.charId].name} → Lv ${inst.level}`);
-      });
-      Player.save();
-
-      st.rewards = { expGain, goldGain, levelUps };
+      
+      // Lifesteal / Sun Arrow
+      if (skillId === 'drain_strike') {
+        let heal = Math.floor(actor.atk * 0.5);
+        actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+        this.log(`💚 ${actor.name} menyerap HP (+${heal}).`);
+      } else if (skillId === 'sun_arrow') {
+        let heal = Math.floor(actor.atk * 0.8);
+        const weakest = aliveAllies.sort((a,b)=>a.hp-b.hp)[0];
+        if (weakest) {
+          weakest.hp = Math.min(weakest.maxHp, weakest.hp + heal);
+          this.log(`💚 ${weakest.name} disembuhkan (+${heal}).`);
+        }
+      }
+    } 
+    else if (skill.type === 'heal') {
+      if (skill.aoe) {
+        aliveAllies.forEach(a => {
+          let heal = Math.floor(actor.atk * skill.power);
+          a.hp = Math.min(a.maxHp, a.hp + heal);
+        });
+        this.log(`💚 Seluruh tim dipulihkan!`);
+      } else if (target) {
+        let heal = Math.floor(actor.atk * skill.power);
+        target.hp = Math.min(target.maxHp, target.hp + heal);
+        this.log(`💚 ${target.name} dipulihkan (+${heal}).`);
+      }
+    }
+    else if (skill.type === 'buff') {
+      if (!actor.buffs) actor.buffs = { atk: 0, def: 0, shield: 0, taunt: false };
+      if (skill.stat === 'taunt') {
+        actor.buffs.taunt = true;
+        actor.buffs.def = 2;
+        this.log(`🎯 ${actor.name} memancing musuh!`);
+      } else if (skill.stat === 'shield') {
+        actor.buffs.shield = Math.floor(actor.maxHp * 0.3);
+        this.log(`🛡️ ${actor.name} mendapatkan Shield!`);
+      }
+    }
+    else if (skill.type === 'debuff' && target) {
+      if (!target.buffs) target.buffs = { atk: 0, def: 0, shield: 0, taunt: false };
+      if (skill.stat === 'atk') {
+        target.buffs.atk = 3;
+        this.log(`⬇️ ATK ${target.name} menurun.`);
+      } else if (skill.stat === 'def') {
+        target.buffs.def = 3;
+        this.log(`⬇️ DEF ${target.name} menurun.`);
+      }
+    }
+    else if (skill.type === 'summon') {
+      const templates = {
+        golem_minion: { name: 'Golem Es', emoji: '🧊', hp: 400, atk: 40, def: 30, spd: 12 },
+        bat_minion: { name: 'Kelelawar', emoji: '🦇', hp: 250, atk: 70, def: 15, spd: 22 },
+        ent_minion: { name: 'Ent Purba', emoji: '🌳', hp: 700, atk: 50, def: 40, spd: 10 }
+      };
+      const t = templates[skill.minion] || { name: 'Minion', emoji: '👾', hp: 200, atk: 30, def: 10, spd: 10 };
+      
+      const minion = {
+        id: `m_${Date.now()}`, name: t.name, emoji: t.emoji, isEnemy: false,
+        hp: t.hp, maxHp: t.hp, atk: t.atk, def: t.def, spd: t.spd,
+        evo: 1, cooldown: 0, skillCooldowns: {}, buffs: { atk: 0, def: 0, shield: 0, taunt: false }
+      };
+      this.allies.push(minion);
+      this.turnQueue.push(minion);
+      this.log(`✨ ${actor.name} memanggil ${minion.name}!`);
     }
 
     this.render();
-    setTimeout(() => this.showResult(win), 700);
+    setTimeout(() => this.nextTurn(), 1000);
   },
 
-  showResult(win) {
-    const st = this.state;
-    const box = document.getElementById('battleResult');
-    let html = '';
-
-    if (win) {
-      html += `<h2 class="win">🏆 KEMENANGAN!</h2>`;
-      html += `<p>+${st.rewards.goldGain} 💰 Gold</p>`;
-      html += `<p>+${st.rewards.expGain} ✨ EXP (setiap anggota tim)</p>`;
-      if (st.rewards.levelUps.length)
-        html += `<p class="levelup">⬆️ Level Up: ${st.rewards.levelUps.join(', ')}</p>`;
-      html += `<div class="result-btns">
-        <button id="againBtn">🔄 Ulangi (Grind)</button>
-        <button id="backBtn">🏠 Kembali</button></div>`;
+  enemyAction(actor) {
+    // Cek apakah ada Tanker yang memakai Taunt
+    const tauntTarget = this.allies.find(a => a.hp > 0 && a.buffs && a.buffs.taunt);
+    
+    let target;
+    if (tauntTarget) {
+      target = tauntTarget;
     } else {
-      html += `<h2 class="lose">💀 KALAH...</h2>`;
-      html += `<p class="muted">Tingkatkan level karakter atau ubah komposisi tim.</p>`;
-      html += `<div class="result-btns"><button id="backBtn">🏠 Kembali</button></div>`;
+      const aliveAllies = this.allies.filter(a => a.hp > 0);
+      if (aliveAllies.length === 0) return;
+      target = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
     }
 
-    box.innerHTML = html;
-    box.classList.remove('hidden');
+    let enemyAtk = actor.atk;
+    if (actor.buffs && actor.buffs.atk > 0) enemyAtk = Math.floor(enemyAtk * 0.5); 
 
-    const again = document.getElementById('againBtn');
-    if (again) again.onclick = () => {
-      box.classList.add('hidden');
-      const stageId = st.stage.id;
-      this.state = null;
-      this.start(stageId);
-    };
-    document.getElementById('backBtn').onclick = () => {
-      box.classList.add('hidden');
-      document.getElementById('battleOverlay').classList.add('hidden');
-      this.state = null;
-      UI.renderAll();
-      UI.navigate('battle');
-    };
+    let damage = Math.max(1, enemyAtk - target.def);
+    
+    // Cek Shield
+    if (target.buffs && target.buffs.shield > 0) {
+      if (target.buffs.shield >= damage) {
+        target.buffs.shield -= damage;
+        damage = 0;
+        this.log(`🛡️ Shield ${target.name} menahan serangan!`);
+      } else {
+        damage -= target.buffs.shield;
+        target.buffs.shield = 0;
+      }
+    }
+
+    target.hp = Math.max(0, target.hp - damage);
+    this.log(`<span class="eff-bad">${actor.name}</span> menyerang ${target.name} (${damage} DMG).`);
+    
+    if (target.hp === 0) this.log(`☠️ ${target.name} tumbang!`);
+
+    this.render();
+    setTimeout(() => this.nextTurn(), 800);
   },
 
-  flee() {
-    if (!this.state || this.state.over) return;
-    this.state.over = true;
-    document.getElementById('battleOverlay').classList.add('hidden');
-    this.state = null;
-    UI.renderAll();
-    UI.navigate('battle');
-  },
+  renderActionBar(actor) {
+    const bar = document.getElementById('actionBar');
+    let skills = ['strike'];
+    let role = 'Minion';
+    
+    if (actor.charId && CHARACTERS[actor.charId]) {
+      skills = CHARACTERS[actor.charId].skills;
+      role = CHARACTERS[actor.charId].role;
+    }
+    
+    let html = `<div class="actor-label">Giliran: <b>${actor.name}</b> | Role: <span style="color: var(--accent-2)">${role}</span></div>`;
+    html += `<div class="action-buttons">`;
+    
+    skills.forEach(skillId => {
+      const skill = SKILLS[skillId];
+      if (!skill) return;
 
-  // ==================== RENDER ====================
-  addLog(text) {
-    this.state.log.push(text);
-    if (this.state.log.length > 40) this.state.log.shift();
+      let cd = (actor.skillCooldowns && actor.skillCooldowns[skillId]) || 0;
+      let isDisabled = cd > 0;
+      
+      let btnClass = 'basic-btn';
+      if (skill.type === 'damage' && skill.power >= 1.8) btnClass = 'ult-btn';
+      if (skill.type === 'heal') btnClass = 'heal-btn';
+      if (skill.type === 'buff') btnClass = 'buff-btn';
+      if (skill.type === 'debuff') btnClass = 'debuff-btn';
+      if (skill.type === 'summon') btnClass = 'summon-btn';
+
+      let cdText = cd > 0 ? ` (CD: ${cd})` : '';
+
+      html += `
+        <button class="skill-btn ${btnClass} ${isDisabled ? 'disabled' : ''}" 
+                ${isDisabled ? 'disabled' : `onclick="Battle.playerAction(Battle.turnQueue[Battle.turnIndex], '${skillId}')"`}>
+          <span class="skill-icon">${skill.type === 'damage' ? '⚔️' : skill.type === 'heal' ? '💚' : skill.type === 'buff' ? '🛡️' : skill.type === 'debuff' ? '☠️' : '✨'}</span>
+          <div class="skill-text">
+            <span class="skill-name">${skill.name}${cdText}</span>
+            <span class="skill-desc">${skill.desc}</span>
+          </div>
+        </button>
+      `;
+    });
+    
+    html += `</div>`;
+    bar.innerHTML = html;
   },
 
   render() {
-    const st = this.state;
-    if (!st) return;
+    const currentActor = this.turnQueue[this.turnIndex];
 
-    document.getElementById('roundNum').textContent = st.round;
-    this.renderRow('enemyRow', st.enemies, 'enemy');
-    this.renderRow('allyRow', st.allies, 'ally');
-    this.renderLog();
-    this.renderActions();
-  },
+    const renderUnit = (u) => {
+      let status = '';
+      if (u.buffs && u.buffs.shield > 0) status += `<span class="status-icon shield" title="Shield">🛡️</span>`;
+      if (u.buffs && u.buffs.taunt) status += `<span class="status-icon taunt" title="Taunt">🎯</span>`;
+      if (u.buffs && u.buffs.atk > 0) status += `<span class="status-icon debuff" title="ATK Down">⬇️ATK</span>`;
+      if (u.buffs && u.buffs.def > 0) status += `<span class="status-icon debuff" title="DEF Down">⬇️DEF</span>`;
 
-  renderRow(id, units, side) {
-    const el = document.getElementById(id);
-    el.innerHTML = units.map((u, i) => this.unitCard(u, side, i)).join('');
-    el.querySelectorAll('.unit-card').forEach(card => {
-      card.onclick = () => this.onUnitClick(card.dataset.side, +card.dataset.index);
-    });
-  },
-
-  unitCard(u, side, i) {
-    const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
-    const mpPct = (u.mp / u.maxMp) * 100;
-    const el = ELEMENTS[u.element] || ELEMENTS.none;
-    const buffIcons = (u.buffs || []).map(b =>
-      `<span class="buff-icon" title="${b.name}">${b.stat === 'atk' ? '⚔️' : b.stat === 'def' ? '🛡️' : '💨'}</span>`
-    ).join('');
-    const isCurrent = this.currentActor === u;
-    const dead = !u.alive ? 'dead' : '';
-
-    return `<div class="unit-card ${dead} ${isCurrent ? 'current' : ''} rar-${u.rarity || 3}"
-              data-side="${side}" data-index="${i}">
-      <div class="unit-emoji">${u.emoji || '👤'}</div>
-      <div class="unit-info">
-        <div class="unit-name">${u.name}
-          <span class="elem-badge" style="color:${el.color}">${el.emoji}</span>
+      return `
+      <div class="unit-card ${u.hp <= 0 ? 'dead' : ''} ${currentActor === u ? 'current' : ''}">
+        <div class="unit-emoji">${u.emoji}</div>
+        <div class="unit-info">
+          <div class="unit-name">${u.name} ${status}</div>
+          <div class="hp-bar"><div class="hp-fill" style="width: ${(u.hp/u.maxHp)*100}%"></div><div class="bar-text">${u.hp}/${u.maxHp}</div></div>
         </div>
-        <div class="hp-bar">
-          <div class="hp-fill" style="width:${hpPct}%"></div>
-          <span class="bar-text">${Math.max(0, Math.ceil(u.hp))}/${u.maxHp}</span>
-        </div>
-        <div class="mp-bar"><div class="mp-fill" style="width:${mpPct}%"></div></div>
-        <div class="unit-meta">Lv ${u.level} ${buffIcons}</div>
       </div>
-    </div>`;
+      `;
+    };
+
+    document.getElementById('allyRow').innerHTML = this.allies.map(renderUnit).join('');
+    document.getElementById('enemyRow').innerHTML = this.enemies.map(renderUnit).join('');
+    document.getElementById('roundNum').innerText = this.round;
   },
 
-  renderLog() {
-    const el = document.getElementById('battleLog');
-    el.innerHTML = this.state.log.slice(-12).map(l => `<div>${l}</div>`).join('');
-    el.scrollTop = el.scrollHeight;
+  log(msg) {
+    const logEl = document.getElementById('battleLog');
+    logEl.innerHTML += `<div>${msg}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
   },
 
-  renderActions() {
-    const bar = document.getElementById('actionBar');
-    const st = this.state;
-    if (!st || st.over) { bar.innerHTML = ''; return; }
+  checkEnd() {
+    const aliveEnemies = this.enemies.filter(e => e.hp > 0);
+    const aliveAllies = this.allies.filter(a => a.hp > 0);
 
-    const actor = this.currentActor;
+    if (aliveEnemies.length === 0) { this.end(true); return true; }
+    if (aliveAllies.length === 0) { this.end(false); return true; }
+    return false;
+  },
 
-    if (st.pending) {
-      const skill = SKILLS[st.pending.skillKey];
-      bar.innerHTML = `<div class="hint">Pilih target untuk <b>${skill.name}</b>
-        <button id="cancelTarget">Batal</button></div>`;
-      document.getElementById('cancelTarget').onclick = () => { st.pending = null; this.render(); };
-      return;
-    }
-
-    if (st.awaiting && actor && actor.side === 'ally') {
-      bar.innerHTML = `<div class="actor-label">Giliran <b>${actor.name}</b> · MP: ${actor.mp}</div>` +
-        actor.skills.map(k => {
-          const s = SKILLS[k];
-          const canUse = actor.mp >= (s.mp || 0);
-          return `<button class="skill-btn ${canUse ? '' : 'disabled'}"
-                    data-skill="${k}" ${canUse ? '' : 'disabled'}>
-            <span class="skill-name">${s.name}</span>
-            <span class="skill-cost">${s.mp || 0} MP</span>
-            <span class="skill-desc">${s.desc || ''}</span>
-          </button>`;
-        }).join('');
-
-      bar.querySelectorAll('.skill-btn').forEach(btn => {
-        btn.onclick = () => this.chooseSkill(btn.dataset.skill);
+  end(isWin) {
+    this.active = false;
+    const modal = document.getElementById('battleResult');
+    
+    if (isWin) {
+      const multiplier = this.stageId * 1.5;
+      const expReward = Math.floor(50 * multiplier);
+      const goldReward = Math.floor(100 * multiplier);
+      
+      Player.addGold(goldReward);
+      this.allies.forEach(a => {
+        if (a.id && a.id.startsWith('m_')) return; // Skip minion
+        const inst = Player.getInstance(a.uid);
+        if (inst) Player.addExp(inst, expReward);
       });
+      
+      Player.completeStage(this.stageId);
+      Player.save();
+      if (typeof window.renderAll === 'function') window.renderAll();
+
+      modal.innerHTML = `
+        <h2 class="win">🏆 KEMENANGAN!</h2>
+        <p>Stage ${this.stageId} diselesaikan.</p>
+        <div class="card" style="text-align:left; margin-top:15px;">
+          <p>💰 Gold: <b>+${goldReward.toLocaleString()}</b></p>
+          <p>✨ EXP: <b>+${expReward.toLocaleString()}</b> (per karakter)</p>
+        </div>
+        <div class="result-btns">
+          <button onclick="Battle.start(${this.stageId + 1})" style="background: var(--success)">Lanjut Stage ${this.stageId + 1} ➔</button>
+          <button onclick="document.getElementById('battleOverlay').classList.add('hidden'); document.getElementById('battleResult').classList.add('hidden');">Kembali ke Menu</button>
+        </div>
+      `;
     } else {
-      bar.innerHTML = `<div class="hint">Menunggu...</div>`;
+      modal.innerHTML = `
+        <h2 class="lose">💀 KALAH...</h2>
+        <p>Tim kamu telah dikalahkan.</p>
+        <div class="result-btns">
+          <button onclick="Battle.start(${this.stageId})">🔄 Coba Lagi</button>
+          <button onclick="document.getElementById('battleOverlay').classList.add('hidden'); document.getElementById('battleResult').classList.add('hidden');">Kembali ke Menu</button>
+        </div>
+      `;
     }
-  },
-
-  chooseSkill(skillKey) {
-    const st = this.state;
-    const actor = this.currentActor;
-    const skill = SKILLS[skillKey];
-    if (!actor || actor.mp < (skill.mp || 0)) return;
-
-    const needsEnemyTarget = skill.type === 'damage' && !skill.aoe;
-    const needsAllyTarget  = (skill.type === 'heal' && !skill.aoe)
-                          || (skill.type === 'buff' && skill.target === 'ally');
-
-    if (needsEnemyTarget || needsAllyTarget) {
-      st.pending = { skillKey };
-      this.render();
-      return;
-    }
-
-    st.awaiting = false;
-    this.performSkill(actor, skillKey, null);
-    this.finishTurn();
-  },
-
-  onUnitClick(side, index) {
-    const st = this.state;
-    if (!st || st.over || !st.pending) return;
-
-    const { skillKey } = st.pending;
-    const skill = SKILLS[skillKey];
-    const actor = this.currentActor;
-    if (!actor || actor.side !== 'ally') return;
-
-    const list = side === 'ally' ? st.allies : st.enemies;
-    const unit = list[index];
-    if (!unit || !unit.alive) return;
-
-    let valid = false;
-    if (skill.type === 'damage') valid = (side === 'enemy');
-    else if (skill.type === 'heal' || skill.target === 'ally') valid = (side === 'ally');
-    if (!valid) return;
-
-    st.pending = null;
-    st.awaiting = false;
-    this.performSkill(actor, skillKey, unit);
-    this.finishTurn();
-  },
+    modal.classList.remove('hidden');
+  }
 };

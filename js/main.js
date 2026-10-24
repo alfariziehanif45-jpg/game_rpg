@@ -1,219 +1,220 @@
-/* ==========================================================
-   main.js — UI, navigasi, roster, tim, gacha
-   ========================================================== */
-
-const UI = {
-  currentPage: 'home',
-
-  init() {
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof Player !== 'undefined') {
     Player.init();
-    this.bind();
-    this.renderAll();
-    this.navigate('home');
-  },
+    renderAll();
+  }
 
-  bind() {
-    document.querySelectorAll('nav button').forEach(btn => {
-      btn.addEventListener('click', () => this.navigate(btn.dataset.page));
+  const navButtons = document.querySelectorAll('nav button');
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      navButtons.forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const pageId = `page-${btn.dataset.page}`;
+      const pageEl = document.getElementById(pageId);
+      if (pageEl) pageEl.classList.add('active');
+      if (btn.dataset.page === 'roster') renderRoster();
+      if (btn.dataset.page === 'team') renderTeam();
+      if (btn.dataset.page === 'battle') renderStages();
     });
+  });
 
-    document.getElementById('resetBtn').onclick = () => {
-      if (confirm('Hapus semua progres dan mulai ulang?')) {
-        Player.reset();
-        this.renderAll();
-        this.navigate('home');
-      }
-    };
+  document.getElementById('pull1Btn')?.addEventListener('click', () => {
+    if (Player.spendGold(Gacha.COST_GOLD)) {
+      const results = Gacha.pull(1);
+      renderGachaResult(results);
+      renderAll();
+    } else alert('Gold tidak cukup!');
+  });
 
-    document.getElementById('pull1Btn').onclick  = () => this.doGacha(1);
-    document.getElementById('pull10Btn').onclick = () => this.doGacha(10);
-    document.getElementById('fleeBtn').onclick   = () => Battle.flee();
-  },
+  document.getElementById('pull10Btn')?.addEventListener('click', () => {
+    if (Player.spendGems(Gacha.COST_GEMS_10)) {
+      const results = Gacha.pull(10);
+      renderGachaResult(results);
+      renderAll();
+    } else alert('Gems tidak cukup!');
+  });
 
-  navigate(page) {
-    this.currentPage = page;
-    document.querySelectorAll('nav button').forEach(b => {
-      b.classList.toggle('active', b.dataset.page === page);
-    });
-    document.querySelectorAll('.page').forEach(p => {
-      p.classList.toggle('active', p.id === 'page-' + page);
-    });
-    if (page === 'roster') this.renderRoster();
-    if (page === 'team')   this.renderTeam();
-    if (page === 'battle') this.renderStages();
-    if (page === 'home')   this.renderHome();
-    if (page === 'gacha')  this.renderHeader();
-  },
-
-  renderAll() {
-    this.renderHeader();
-    this.renderHome();
-    this.renderRoster();
-    this.renderTeam();
-    this.renderStages();
-  },
-
-  renderHeader() {
-    document.getElementById('goldDisplay').textContent = '💰 ' + Player.data.gold;
-    document.getElementById('gemDisplay').textContent  = '💎 ' + Player.data.gems;
-  },
-
-  renderHome() {
-    document.getElementById('statPulls').textContent  = Player.data.totalPulls;
-    document.getElementById('statRoster').textContent = Player.data.roster.length;
-    document.getElementById('statStage').textContent  = Player.data.stageProgress;
-    document.getElementById('statPity').textContent   = Player.data.pity;
-  },
-
-  // ==================== GACHA ====================
-  doGacha(count) {
-    let ok;
-    if (count === 1) {
-      if (!Player.spendGold(Gacha.COST_GOLD)) { alert('Gold tidak cukup! (butuh 100)'); return; }
-    } else {
-      if (!Player.spendGems(Gacha.COST_GEMS_10)) { alert('Gems tidak cukup! (butuh 450)'); return; }
+  document.getElementById('resetBtn')?.addEventListener('click', () => {
+    if (confirm('Yakin ingin mereset semua progres?')) {
+      Player.reset();
+      renderAll();
+      alert('Progres telah direset!');
     }
+  });
+});
 
-    const results = Gacha.pull(count);
-    this.renderAll();
-    this.showGachaResults(results);
-  },
+// State Filter Global
+let currentRarityFilter = 'all';
+let currentSortFilter = 'none';
 
-  showGachaResults(results) {
-    const box = document.getElementById('gachaResult');
-    box.innerHTML = `<h3>✦ Hasil Summon ✦</h3>
-      <div class="gacha-grid">
-        ${results.map(r => {
-          const c = CHARACTERS[r.charId];
-          const el = ELEMENTS[c.element];
-          return `<div class="gacha-card rar-${c.rarity}">
-            <div class="rarity-stars">${'★'.repeat(c.rarity)}</div>
-            <div class="char-emoji">${c.emoji}</div>
-            <div class="char-name">${c.name}</div>
-            <div class="char-sub"><span style="color:${el.color}">${el.emoji} ${el.name}</span> · ${c.role}</div>
-          </div>`;
-        }).join('')}
-      </div>
-      <button id="closeGacha" class="primary">Tutup</button>`;
-    box.classList.remove('hidden');
-    document.getElementById('closeGacha').onclick = () => box.classList.add('hidden');
-  },
-
-  // ==================== KARAKTER CARD ====================
-  charCard(inst, actionHTML = '') {
-    const c = CHARACTERS[inst.charId];
-    const s = Player.computeStats(inst);
-    const el = ELEMENTS[c.element];
-    const inTeam = Player.data.team.includes(inst.uid);
-
-    return `<div class="char-card rar-${c.rarity} ${inTeam ? 'in-team' : ''}">
-      <div class="rarity-stars">${'★'.repeat(c.rarity)}</div>
-      <div class="char-emoji">${c.emoji}</div>
-      <div class="char-name">${c.name}</div>
-      <div class="char-sub">
-        <span style="color:${el.color}">${el.emoji} ${el.name}</span> · ${c.role}
-      </div>
-      <div class="char-lv">Lv ${inst.level} · EXP ${inst.exp}/${Player.expToNext(inst.level)}</div>
-      <div class="char-stats">
-        <span>❤️ ${s.maxHp}</span><span>⚔️ ${s.atk}</span>
-        <span>🛡️ ${s.def}</span><span>💨 ${s.spd}</span>
-      </div>
-      ${actionHTML}
-    </div>`;
-  },
-
-  renderRoster() {
-    const grid = document.getElementById('rosterGrid');
-    if (!Player.data.roster.length) {
-      grid.innerHTML = `<p class="muted">Belum ada karakter. Coba gacha dulu!</p>`;
-      return;
-    }
-    grid.innerHTML = Player.data.roster
-      .slice()
-      .sort((a, b) => CHARACTERS[b.charId].rarity - CHARACTERS[a.charId].rarity || b.level - a.level)
-      .map(inst => this.charCard(inst)).join('');
-  },
-
-  // ==================== TEAM ====================
-  renderTeam() {
-    const slots = document.getElementById('teamSlots');
-    const teamInsts = Player.getTeamUnits();
-
-    let html = '';
-    for (let i = 0; i < 4; i++) {
-      const inst = teamInsts[i];
-      if (inst) {
-        html += this.charCard(inst,
-          `<button class="mini-btn" data-remove="${inst.uid}">❌ Keluarkan</button>`);
-      } else {
-        html += `<div class="empty-slot">Slot Kosong</div>`;
-      }
-    }
-    slots.innerHTML = html;
-
-    slots.querySelectorAll('[data-remove]').forEach(btn => {
-      btn.onclick = () => {
-        Player.removeFromTeam(+btn.dataset.remove);
-        this.renderTeam();
-        this.renderRoster();
-      };
-    });
-
-    const roster = document.getElementById('teamRoster');
-    const inTeam = new Set(Player.data.team);
-    const available = Player.data.roster.filter(r => !inTeam.has(r.uid));
-
-    if (!available.length) {
-      roster.innerHTML = `<p class="muted">Semua karakter sudah masuk tim / belum ada karakter lain.</p>`;
-    } else {
-      roster.innerHTML = available.map(inst => this.charCard(inst,
-        `<button class="mini-btn" data-add="${inst.uid}">➕ Tambah ke Tim</button>`)).join('');
-
-      roster.querySelectorAll('[data-add]').forEach(btn => {
-        btn.onclick = () => {
-          if (!Player.addToTeam(+btn.dataset.add)) {
-            alert('Tim penuh! Maksimal 4 karakter.');
-            return;
-          }
-          this.renderTeam();
-          this.renderRoster();
-        };
-      });
-    }
-  },
-
-  // ==================== STAGES ====================
-  renderStages() {
-    const list = document.getElementById('stageList');
-    list.innerHTML = STAGES.map(stage => {
-      const unlocked = Player.isStageUnlocked(stage.id);
-      const preview = stage.enemies.map(mid =>
-        `${MONSTERS[mid].emoji} ${MONSTERS[mid].name}`).join(', ');
-      const cleared = stage.id < Player.data.stageProgress;
-
-      return `<div class="stage-card ${unlocked ? '' : 'locked'}">
-        <h4>${stage.boss ? '👑 ' : ''}Stage ${stage.id} — ${stage.name}</h4>
-        <div class="muted small">Level rekomendasi: ${stage.lv}
-          ${cleared ? ' · ✅ Sudah ditamatkan' : ''}
-          ${stage.boss ? ' · <span class="boss-tag">BOSS</span>' : ''}</div>
-        <div class="enemies">${preview}</div>
-        ${unlocked
-          ? `<button class="primary" data-stage="${stage.id}">⚔️ Bertarung</button>`
-          : `<button class="primary" disabled>🔒 Terkunci</button>`}
-      </div>`;
-    }).join('');
-
-    list.querySelectorAll('[data-stage]').forEach(btn => {
-      btn.onclick = () => {
-        if (!Player.data.team.length) {
-          alert('Susun tim dulu di tab 🛡️ Tim!');
-          return;
-        }
-        Battle.start(+btn.dataset.stage);
-      };
-    });
-  },
+// Fungsi Filter
+window.setFilter = function(type, value, btnElement) {
+  if (type === 'rarity') {
+    currentRarityFilter = value;
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
+  } else if (type === 'sort') {
+    currentSortFilter = value;
+  }
+  renderRoster();
 };
 
-// ==================== BOOT ====================
-window.addEventListener('DOMContentLoaded', () => UI.init());
+window.renderAll = function() {
+  renderStats();
+  renderRoster();
+  renderTeam();
+  renderStages();
+  const goldEl = document.getElementById('goldDisplay');
+  const gemEl = document.getElementById('gemDisplay');
+  if (goldEl) goldEl.innerText = `💰 ${Player.data.gold.toLocaleString()}`;
+  if (gemEl) gemEl.innerText = `💎 ${Player.data.gems.toLocaleString()}`;
+};
+
+function renderStats() {
+  const pullsEl = document.getElementById('statPulls');
+  if (pullsEl) {
+    pullsEl.innerText = Player.data.totalPulls;
+    document.getElementById('statRoster').innerText = Player.data.roster.length;
+    document.getElementById('statStage').innerText = Player.data.stageProgress;
+    document.getElementById('statPity').innerText = Player.data.pity;
+  }
+}
+
+function createCharCard(inst, isTeamSlot = false) {
+  const c = CHARACTERS[inst.charId];
+  const stats = Player.computeStats(inst);
+  const expNeeded = inst.level >= 250 ? 0 : Player.expToNext(inst.level);
+  const expText = inst.level >= 250 ? 'MAX LEVEL' : `EXP: ${inst.exp} / ${expNeeded}`;
+  
+  let btnHtml = isTeamSlot 
+    ? `<div class="mini-btn" style="background:var(--danger); margin-top:8px;">Keluarkan</div>`
+    : `<div class="mini-btn" style="margin-top:8px;">Tambahkan</div>`;
+
+  return `
+    <div class="char-card rar-${c.rarity} ${isTeamSlot ? 'in-team' : ''}" data-uid="${inst.uid}">
+      <div class="rarity-stars">${'★'.repeat(c.rarity)}</div>
+      <div class="char-emoji">${c.emoji || '👤'}</div>
+      <div class="char-name">${c.name}</div>
+      <div class="char-sub">${c.element} · <b style="color:#ffb547">${c.role}</b></div>
+      <div class="char-lv" style="font-size: 0.9rem; margin-top: 4px;">Lv ${inst.level}</div>
+      
+      <div class="char-stats" style="margin-top: 8px; font-size: 0.75rem;">
+        <span>❤️ HP: ${stats.maxHp}</span>
+        <span>⚔️ ATK: ${stats.atk}</span>
+        <span>🛡️ DEF: ${stats.def}</span>
+        <span>💨 SPD: ${stats.spd}</span>
+      </div>
+      
+      <div class="char-exp" style="font-size: 0.65rem; color: var(--accent-2); margin-top: 6px; font-weight: bold;">
+        ${expText}
+      </div>
+      
+      ${btnHtml}
+    </div>
+  `;
+}
+
+function renderRoster() {
+  const grid = document.getElementById('rosterGrid');
+  if (!grid) return;
+  
+  let roster = [...Player.data.roster];
+  
+  // Filter Rarity
+  if (currentRarityFilter !== 'all') {
+    roster = roster.filter(r => CHARACTERS[r.charId].rarity === parseInt(currentRarityFilter));
+  }
+  
+  // Sort Bintang
+  if (currentSortFilter === 'evo_desc') {
+    roster.sort((a, b) => (b.evo || 1) - (a.evo || 1));
+  } else if (currentSortFilter === 'evo_asc') {
+    roster.sort((a, b) => (a.evo || 1) - (b.evo || 1));
+  }
+  
+  grid.innerHTML = roster.map(inst => {
+    const isInTeam = Player.data.team.includes(inst.uid);
+    return createCharCard(inst, isInTeam);
+  }).join('');
+}
+
+function renderTeam() {
+  const slotsEl = document.getElementById('teamSlots');
+  const rosterEl = document.getElementById('teamRoster');
+  if (!slotsEl || !rosterEl) return;
+
+  let slotsHtml = '';
+  for (let i = 0; i < 4; i++) {
+    const uid = Player.data.team[i];
+    if (uid) {
+      const inst = Player.getInstance(uid);
+      if (inst) slotsHtml += `<div onclick="removeFromTeam(${inst.uid})" style="cursor:pointer;">${createCharCard(inst, true)}</div>`;
+    } else {
+      slotsHtml += `<div class="empty-slot">+ Slot Kosong</div>`;
+    }
+  }
+  slotsEl.innerHTML = slotsHtml;
+
+  let rosterHtml = '';
+  Player.data.roster.forEach(inst => {
+    if (Player.data.team.includes(inst.uid)) return;
+    rosterHtml += `<div onclick="addToTeam(${inst.uid})" style="cursor:pointer;">${createCharCard(inst, false)}</div>`;
+  });
+  rosterEl.innerHTML = rosterHtml;
+}
+
+window.addToTeam = function(uid) {
+  if (Player.addToTeam(uid)) renderAll();
+  else alert('Tim sudah penuh (maksimal 4 karakter)!');
+};
+
+window.removeFromTeam = function(uid) {
+  Player.removeFromTeam(uid);
+  renderAll();
+};
+
+function renderStages() {
+  const list = document.getElementById('stageList');
+  if (!list) return;
+  list.innerHTML = '';
+  const maxShow = Player.data.stageProgress + 1;
+  
+  for (let i = 1; i <= maxShow; i++) {
+    const isUnlocked = Player.isStageUnlocked(i);
+    const isBoss = i % 5 === 0; 
+    const monsterCount = Math.min(7, 2 + i);
+    
+    list.innerHTML += `
+      <div class="stage-card ${isUnlocked ? '' : 'locked'}">
+        <h4>Stage ${i} — ${isBoss ? '👑 Boss' : 'Hutan'} ${isUnlocked ? '' : '🔒'}</h4>
+        <p class="muted small">Level Rekomendasi: ${i * 2}</p>
+        <div class="enemies">
+          ${isBoss ? '<span class="boss-tag">BOSS STAGE</span><br>' : ''}
+          ${isUnlocked ? `👾 ${monsterCount} Monster` : 'Selesaikan stage sebelumnya'}
+        </div>
+        <button class="primary" onclick="Battle.start(${i})" ${isUnlocked ? '' : 'disabled'}>
+          ${isUnlocked ? '⚔️ Bertarung' : '🔒 Terkunci'}
+        </button>
+      </div>
+    `;
+  }
+}
+
+function renderGachaResult(results) {
+  const resEl = document.getElementById('gachaResult');
+  if (!resEl) return;
+  resEl.classList.remove('hidden');
+  resEl.innerHTML = `<h3>✦ Hasil Summon ✦</h3><div class="gacha-grid">` +
+    results.map(r => {
+      const c = CHARACTERS[r.charId];
+      return `
+        <div class="gacha-card rar-${r.rarity}">
+          <div class="rarity-stars">${'★'.repeat(r.rarity)}</div>
+          <div class="char-emoji">${c.emoji || '👤'}</div>
+          <div class="char-name">${c.name}</div>
+          <div class="char-sub">${c.element}</div>
+        </div>
+      `;
+    }).join('') + `</div>`;
+}
