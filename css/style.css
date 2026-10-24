@@ -19,6 +19,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   padding-bottom: 40px;
+  overflow-x: hidden;
 }
 
 #app { max-width: 1100px; margin: 0 auto; padding: 12px; }
@@ -143,6 +144,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   position: fixed; inset: 0; background: rgba(8, 10, 16, 0.98);
   z-index: 100; display: flex; flex-direction: column;
   padding: 12px; max-width: 900px; margin: 0 auto;
+  overflow-y: auto;
 }
 .battle-overlay.hidden { display: none; }
 .battle-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -226,3 +228,130 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .result-btns button:last-child { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
 
 .hidden { display: none !important; }
+
+/* ==========================================================
+   DUKUNGAN ORIENTASI (PORTRAIT & LANDSCAPE)
+   ========================================================== */
+
+/* ---------- PORTRAIT (layar tegak) ---------- */
+@media (orientation: portrait) {
+  #app {
+    max-width: 100%;
+    padding: 8px;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .resources {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  nav button {
+    flex: 1 1 auto;
+    min-width: 80px;
+    font-size: 0.8rem;
+    padding: 10px 6px;
+  }
+
+  .char-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .stage-list {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-overlay {
+    padding: 8px;
+    max-width: 100%;
+  }
+
+  .unit-card {
+    flex: 1 1 140px;
+    max-width: 180px;
+  }
+
+  .gacha-btns {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .gacha-btns button {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .banner {
+    padding: 16px;
+  }
+
+  .battle-log {
+    max-height: 120px;
+  }
+}
+
+/* ---------- LANDSCAPE (layar mendatar) ---------- */
+@media (orientation: landscape) {
+  #app {
+    max-width: 1200px;
+    padding: 16px;
+  }
+
+  header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  nav button {
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .char-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .stage-list {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .battle-overlay {
+    max-width: 1100px;
+    padding: 16px;
+  }
+
+  .unit-card {
+    flex: 1 1 200px;
+    max-width: 240px;
+  }
+
+  .battle-log {
+    max-height: 200px;
+  }
+
+  .gacha-btns {
+    flex-direction: row;
+  }
+}
+
+/* ---------- Layar sangat kecil (HP kecil) ---------- */
+@media (max-width: 380px) {
+  nav button {
+    min-width: 70px;
+    font-size: 0.75rem;
+  }
+
+  .char-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+
+  .battle-overlay {
+    padding: 6px;
+  }
+}
