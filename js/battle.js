@@ -28,17 +28,12 @@ const Battle = {
         emoji: CHARACTERS[u.charId].emoji || '👤',
         hp: stats.maxHp, maxHp: stats.maxHp,
         atk: stats.atk, def: stats.def, spd: stats.spd,
-        evo: u.evo || 1,
-        cooldown: 0,
-        skillCooldowns: {},
-        buffs: { atk: 0, def: 0, shield: 0, taunt: false }
+        evo: u.evo || 1, cooldown: 0, skillCooldowns: {},
+        buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
       };
     });
 
-    // Generate Musuh (Endless Mode)
     this.enemies = this.generateEnemies(stageId);
-    
-    // Gabungkan dan Urutkan berdasarkan SPD
     this.turnQueue = [...this.allies, ...this.enemies].sort((a, b) => b.spd - a.spd);
     
     this.log(`⚔️ Pertarungan dimulai! Stage ${stageId}`);
@@ -65,7 +60,7 @@ const Battle = {
         id: `e_${i}`, name: template.name, emoji: template.emoji, isEnemy: true,
         hp: Math.floor(template.baseHp * scale), maxHp: Math.floor(template.baseHp * scale),
         atk: Math.floor(template.baseAtk * scale), def: Math.floor(template.baseDef * scale), spd: Math.floor(template.baseSpd * scale),
-        evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, shield: 0, taunt: false }
+        evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
       });
     }
     return enemies;
@@ -95,7 +90,7 @@ const Battle = {
       this.turnIndex = 0;
       this.round++;
       
-      // Kurangi durasi buff/debuff & cooldown skill
+      // Kurangi durasi buff/debuff & cooldown skill setiap awal ronde
       this.turnQueue.forEach(u => { 
         if (u.cooldown > 0) u.cooldown--;
         if (u.skillCooldowns) {
@@ -106,6 +101,7 @@ const Battle = {
         if (u.buffs) {
           if (u.buffs.atk > 0) u.buffs.atk--;
           if (u.buffs.def > 0) u.buffs.def--;
+          if (u.buffs.spd > 0) u.buffs.spd--;
         }
       });
     }
@@ -137,23 +133,33 @@ const Battle = {
 
     this.log(`<span class="eff-good">${actor.name}</span> menggunakan <b>${skill.name}</b>!`);
 
+    // Hitung Buff Actor
+    let actorAtk = actor.atk;
+    if (actor.buffs && actor.buffs.atk > 0) actorAtk = Math.floor(actorAtk * 1.4);
+
     // --- LOGIKA EFEK SKILL ---
     if (skill.type === 'damage') {
       if (skill.aoe) {
         aliveEnemies.forEach(e => {
-          let dmg = Math.max(1, Math.floor((actor.atk * skill.power) - e.def));
+          let targetDef = e.def;
+          if (e.buffs && e.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
+          
+          let dmg = Math.max(1, Math.floor((actorAtk * skill.power) - targetDef));
           e.hp = Math.max(0, e.hp - dmg);
           this.log(`💥 ${e.name} menerima ${dmg} DMG.`);
           if (e.hp === 0) this.log(`💀 ${e.name} tumbang!`);
         });
       } else if (target) {
-        let dmg = Math.max(1, Math.floor((actor.atk * skill.power) - target.def));
+        let targetDef = target.def;
+        if (target.buffs && target.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
+
+        let dmg = Math.max(1, Math.floor((actorAtk * skill.power) - targetDef));
         target.hp = Math.max(0, target.hp - dmg);
         this.log(`💥 ${target.name} menerima ${dmg} DMG.`);
         if (target.hp === 0) this.log(`💀 ${target.name} tumbang!`);
       }
       
-      // Lifesteal / Sun Arrow
+      // Efek Tambahan
       if (skillId === 'drain_strike') {
         let heal = Math.floor(actor.atk * 0.5);
         actor.hp = Math.min(actor.maxHp, actor.hp + heal);
@@ -181,7 +187,8 @@ const Battle = {
       }
     }
     else if (skill.type === 'buff') {
-      if (!actor.buffs) actor.buffs = { atk: 0, def: 0, shield: 0, taunt: false };
+      if (!actor.buffs) actor.buffs = { atk: 0, def: 0, spd: 0, shield: 0, taunt: false };
+      
       if (skill.stat === 'taunt') {
         actor.buffs.taunt = true;
         actor.buffs.def = 2;
@@ -189,16 +196,15 @@ const Battle = {
       } else if (skill.stat === 'shield') {
         actor.buffs.shield = Math.floor(actor.maxHp * 0.3);
         this.log(`🛡️ ${actor.name} mendapatkan Shield!`);
-      }
-    }
-    else if (skill.type === 'debuff' && target) {
-      if (!target.buffs) target.buffs = { atk: 0, def: 0, shield: 0, taunt: false };
-      if (skill.stat === 'atk') {
-        target.buffs.atk = 3;
-        this.log(`⬇️ ATK ${target.name} menurun.`);
+      } else if (skill.stat === 'atk') {
+        actor.buffs.atk = 3;
+        this.log(`⬆️ ATK ${actor.name} meningkat!`);
       } else if (skill.stat === 'def') {
-        target.buffs.def = 3;
-        this.log(`⬇️ DEF ${target.name} menurun.`);
+        actor.buffs.def = 3;
+        this.log(`⬆️ DEF ${actor.name} meningkat!`);
+      } else if (skill.stat === 'spd') {
+        actor.buffs.spd = 3;
+        this.log(`⬆️ SPD ${actor.name} meningkat!`);
       }
     }
     else if (skill.type === 'summon') {
@@ -208,11 +214,10 @@ const Battle = {
         ent_minion: { name: 'Ent Purba', emoji: '🌳', hp: 700, atk: 50, def: 40, spd: 10 }
       };
       const t = templates[skill.minion] || { name: 'Minion', emoji: '👾', hp: 200, atk: 30, def: 10, spd: 10 };
-      
       const minion = {
         id: `m_${Date.now()}`, name: t.name, emoji: t.emoji, isEnemy: false,
         hp: t.hp, maxHp: t.hp, atk: t.atk, def: t.def, spd: t.spd,
-        evo: 1, cooldown: 0, skillCooldowns: {}, buffs: { atk: 0, def: 0, shield: 0, taunt: false }
+        evo: 1, cooldown: 0, skillCooldowns: {}, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
       };
       this.allies.push(minion);
       this.turnQueue.push(minion);
@@ -226,7 +231,6 @@ const Battle = {
   enemyAction(actor) {
     // Cek apakah ada Tanker yang memakai Taunt
     const tauntTarget = this.allies.find(a => a.hp > 0 && a.buffs && a.buffs.taunt);
-    
     let target;
     if (tauntTarget) {
       target = tauntTarget;
@@ -237,9 +241,12 @@ const Battle = {
     }
 
     let enemyAtk = actor.atk;
-    if (actor.buffs && actor.buffs.atk > 0) enemyAtk = Math.floor(enemyAtk * 0.5); 
+    if (actor.buffs && actor.buffs.atk > 0) enemyAtk = Math.floor(enemyAtk * 1.4); 
 
-    let damage = Math.max(1, enemyAtk - target.def);
+    let targetDef = target.def;
+    if (target.buffs && target.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
+
+    let damage = Math.max(1, enemyAtk - targetDef);
     
     // Cek Shield
     if (target.buffs && target.buffs.shield > 0) {
@@ -255,7 +262,6 @@ const Battle = {
 
     target.hp = Math.max(0, target.hp - damage);
     this.log(`<span class="eff-bad">${actor.name}</span> menyerang ${target.name} (${damage} DMG).`);
-    
     if (target.hp === 0) this.log(`☠️ ${target.name} tumbang!`);
 
     this.render();
@@ -283,10 +289,9 @@ const Battle = {
       let isDisabled = cd > 0;
       
       let btnClass = 'basic-btn';
-      if (skill.type === 'damage' && skill.power >= 1.8) btnClass = 'ult-btn';
+      if (skill.type === 'damage') btnClass = 'ult-btn';
       if (skill.type === 'heal') btnClass = 'heal-btn';
       if (skill.type === 'buff') btnClass = 'buff-btn';
-      if (skill.type === 'debuff') btnClass = 'debuff-btn';
       if (skill.type === 'summon') btnClass = 'summon-btn';
 
       let cdText = cd > 0 ? ` (CD: ${cd})` : '';
@@ -312,10 +317,12 @@ const Battle = {
 
     const renderUnit = (u) => {
       let status = '';
-      if (u.buffs && u.buffs.shield > 0) status += `<span class="status-icon shield" title="Shield">🛡️</span>`;
-      if (u.buffs && u.buffs.taunt) status += `<span class="status-icon taunt" title="Taunt">🎯</span>`;
-      if (u.buffs && u.buffs.atk > 0) status += `<span class="status-icon debuff" title="ATK Down">⬇️ATK</span>`;
-      if (u.buffs && u.buffs.def > 0) status += `<span class="status-icon debuff" title="DEF Down">⬇️DEF</span>`;
+      if (u.buffs) {
+        if (u.buffs.shield > 0) status += `<span class="status-icon shield" title="Shield">🛡️</span>`;
+        if (u.buffs.taunt) status += `<span class="status-icon taunt" title="Taunt">🎯</span>`;
+        if (u.buffs.atk > 0) status += `<span class="status-icon buff" title="ATK Up">⬆️</span>`;
+        if (u.buffs.def > 0) status += `<span class="status-icon buff" title="DEF Up">🛡️</span>`;
+      }
 
       return `
       <div class="unit-card ${u.hp <= 0 ? 'dead' : ''} ${currentActor === u ? 'current' : ''}">
@@ -359,7 +366,7 @@ const Battle = {
       
       Player.addGold(goldReward);
       this.allies.forEach(a => {
-        if (a.id && a.id.startsWith('m_')) return; // Skip minion
+        if (a.id && a.id.startsWith('m_')) return; 
         const inst = Player.getInstance(a.uid);
         if (inst) Player.addExp(inst, expReward);
       });

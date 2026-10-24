@@ -6,27 +6,13 @@
   <title>RPG Gacha — Idle Heroes</title>
   <link rel="stylesheet" href="css/style.css">
   
-  <!-- ========================================== -->
-  <!-- KONFIGURASI PWA (PROGRESSIVE WEB APP)      -->
-  <!-- ========================================== -->
+  <!-- KONFIGURASI PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#7c5cff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="RPG Gacha">
-  <!-- Ikon untuk iOS (iPhone/iPad) -->
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3409/3409248.png">
-
-  <style>
-    #app { display: block !important; width: 100% !important; overflow-x: hidden !important; }
-    header { display: flex !important; flex-direction: row !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; }
-    nav { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; width: 100% !important; }
-    main { width: 100% !important; display: block !important; }
-    @media (max-width: 600px) {
-      header { flex-direction: column !important; align-items: flex-start !important; }
-      nav button { flex: 1 1 30% !important; font-size: 0.8rem !important; }
-    }
-  </style>
 </head>
 <body>
 
@@ -102,7 +88,6 @@
     <section id="page-roster" class="page">
       <h2>📜 Koleksi Karakter</h2>
       
-      <!-- FILTER & SORTING -->
       <div class="filters-container">
         <div class="filter-group">
           <span class="filter-label">Rarity:</span>
@@ -161,13 +146,10 @@
 <script src="js/evolve.js"></script>
 <script src="js/start.js"></script>
 
-<!-- Script untuk mendaftarkan Service Worker (agar bisa diinstal) -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('PWA Service Worker aktif!', reg))
-        .catch(err => console.log('Service Worker gagal:', err));
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW gagal:', err));
     });
   }
 </script>

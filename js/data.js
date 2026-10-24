@@ -4,19 +4,25 @@
 
 // ----- SKILL DATABASE -----
 const SKILLS = {
+  // --- Basic ---
   strike:      { name: 'Serangan',        mp: 0,  type: 'damage', power: 1.0,  target: 'enemy', aoe: false, element: 'none',  desc: 'Serangan fisik dasar.' },
   heavy_blow:  { name: 'Hantaman Keras',  mp: 14, type: 'damage', power: 2.0,  target: 'enemy', aoe: false, element: 'none',  desc: 'Hantaman kuat satu target.' },
   fireball:    { name: 'Bola Api',        mp: 16, type: 'damage', power: 2.2,  target: 'enemy', aoe: false, element: 'fire',  desc: 'Bola api meledak.' },
   inferno:     { name: 'Neraka Api',      mp: 34, type: 'damage', power: 1.4,  target: 'enemy', aoe: true,  element: 'fire',  desc: 'Membakar semua musuh.' },
   dark_nova:   { name: 'Nova Kegelapan',  mp: 36, type: 'damage', power: 1.6,  target: 'enemy', aoe: true,  element: 'dark',  desc: 'Ledakan kegelapan.' },
+  gale:        { name: 'Tebasan Angin',   mp: 14, type: 'damage', power: 1.8,  target: 'enemy', aoe: false, element: 'wind',  desc: 'Angin tajam.' },
+  shadow_bolt: { name: 'Panah Bayangan',  mp: 14, type: 'damage', power: 1.9,  target: 'enemy', aoe: false, element: 'dark',  desc: 'Energi kegelapan.' },
+  quake:       { name: 'Guncangan Bumi',  mp: 28, type: 'damage', power: 1.3,  target: 'enemy', aoe: true,  element: 'earth', desc: 'Mengguncang bumi.' },
   
   // --- Skill Tanker ---
   taunt:       { name: 'Provokasi',       mp: 10, type: 'buff',   target: 'self', stat: 'taunt', turns: 2, element: 'none', desc: 'Memancing serangan musuh & +50% DEF.' },
   iron_wall:   { name: 'Tembok Baja',     mp: 20, type: 'buff',   target: 'self', stat: 'shield', turns: 2, element: 'earth', desc: 'Mendapatkan Shield sebesar 30% Max HP.' },
+  guard_up:    { name: 'Kuda-kuda',       mp: 10, type: 'buff',   target: 'self', stat: 'def', amount: 0.5, turns: 3, element: 'none',  desc: '+50% DEF (3 turn).' },
 
   // --- Skill Healer ---
   heal:        { name: 'Penyembuhan',     mp: 18, type: 'heal',   power: 1.6,  target: 'ally',  aoe: false, element: 'light', desc: 'Memulihkan HP satu sekutu.' },
   mass_heal:   { name: 'Restorasi',       mp: 36, type: 'heal',   power: 1.2,  target: 'ally',  aoe: true,  element: 'light', desc: 'Memulihkan HP semua sekutu.' },
+  holy_shield: { name: 'Perisai Suci',    mp: 16, type: 'buff',   target: 'ally', stat: 'def', amount: 0.6, turns: 3, element: 'light', desc: '+60% DEF sekutu (3 turn).' },
 
   // --- Skill Debuffer ---
   weaken:      { name: 'Pelemahan',       mp: 15, type: 'debuff', target: 'enemy', stat: 'atk', amount: 0.4, turns: 3, element: 'dark', desc: 'Mengurangi ATK musuh sebesar 40%.' },
@@ -29,88 +35,74 @@ const SKILLS = {
 
   // --- Skill Hybrid ---
   drain_strike:{ name: 'Serangan Hisap',  mp: 15, type: 'damage', power: 1.5,  target: 'enemy', aoe: false, element: 'dark', desc: 'Menyerap HP musuh (Lifesteal).' },
-  sun_arrow:   { name: 'Panah Surya',     mp: 18, type: 'damage', power: 1.6,  target: 'enemy', aoe: false, element: 'light', desc: 'Damage musuh & menyembuhkan sekutu terlemah.' }
+  sun_arrow:   { name: 'Panah Surya',     mp: 18, type: 'damage', power: 1.6,  target: 'enemy', aoe: false, element: 'light', desc: 'Damage musuh & menyembuhkan sekutu terlemah.' },
+
+  // --- Skill Buff Tambahan (5★) ---
+  war_cry:     { name: 'Teriakan Perang', mp: 12, type: 'buff',   target: 'self', stat: 'atk', amount: 0.4, turns: 3, element: 'none',  desc: '+40% ATK (3 turn).' },
+  time_warp:   { name: 'Pelintiran Waktu',mp: 20, type: 'buff',   target: 'self', stat: 'spd', amount: 0.5, turns: 3, element: 'wind',  desc: '+50% SPD (3 turn).' }
 };
 
 // ----- KARAKTER DATABASE -----
 const CHARACTERS = {
-  // ===== 3★ =====
+  // ===== 3★ (2 SKILL) =====
   alden: { name: 'Sir Alden',  emoji: '🗡️', rarity: 3, role: 'DPS', element: 'fire',
-    base: { hp: 1000, atk: 95, def: 62, spd: 98 },
-    growth: { hp: 90, atk: 9, def: 6, spd: 1.2 },
+    base: { hp: 1000, atk: 95, def: 62, spd: 98 }, growth: { hp: 90, atk: 9, def: 6, spd: 1.2 },
     skills: ['strike', 'heavy_blow'] },
   mira: { name: 'Mira Sang Es', emoji: '🧊', rarity: 3, role: 'Summoner', element: 'water',
-    base: { hp: 780, atk: 105, def: 45, spd: 102 },
-    growth: { hp: 70, atk: 11, def: 5, spd: 1.3 },
+    base: { hp: 780, atk: 105, def: 45, spd: 102 }, growth: { hp: 70, atk: 11, def: 5, spd: 1.3 },
     skills: ['strike', 'summon_golem'] },
   kael: { name: 'Kael Bayangan', emoji: '🥷', rarity: 3, role: 'Debuffer', element: 'dark',
-    base: { hp: 820, atk: 110, def: 48, spd: 112 },
-    growth: { hp: 72, atk: 12, def: 5, spd: 1.5 },
+    base: { hp: 820, atk: 110, def: 48, spd: 112 }, growth: { hp: 72, atk: 12, def: 5, spd: 1.5 },
     skills: ['strike', 'weaken'] },
   sera: { name: 'Sera Pemanah', emoji: '🏹', rarity: 3, role: 'Hybrid', element: 'wind',
-    base: { hp: 800, atk: 102, def: 44, spd: 108 },
-    growth: { hp: 70, atk: 11, def: 5, spd: 1.4 },
+    base: { hp: 800, atk: 102, def: 44, spd: 108 }, growth: { hp: 70, atk: 11, def: 5, spd: 1.4 },
     skills: ['strike', 'drain_strike'] },
   brom: { name: 'Brom Perisai', emoji: '🛡️', rarity: 3, role: 'Tanker', element: 'earth',
-    base: { hp: 1250, atk: 72, def: 95, spd: 78 },
-    growth: { hp: 115, atk: 7, def: 9, spd: 0.8 },
+    base: { hp: 1250, atk: 72, def: 95, spd: 78 }, growth: { hp: 115, atk: 7, def: 9, spd: 0.8 },
     skills: ['strike', 'taunt'] },
   lyra: { name: 'Lyra Penyembuh', emoji: '💖', rarity: 3, role: 'Healer', element: 'light',
-    base: { hp: 850, atk: 82, def: 52, spd: 100 },
-    growth: { hp: 78, atk: 9, def: 6, spd: 1.2 },
+    base: { hp: 850, atk: 82, def: 52, spd: 100 }, growth: { hp: 78, atk: 9, def: 6, spd: 1.2 },
     skills: ['strike', 'heal'] },
 
-  // ===== 4★ =====
+  // ===== 4★ (3 SKILL) =====
   ignis: { name: 'Ignis Pemangsa', emoji: '🔥', rarity: 4, role: 'DPS', element: 'fire',
-    base: { hp: 1250, atk: 145, def: 70, spd: 108 },
-    growth: { hp: 130, atk: 14, def: 9, spd: 1.4 },
+    base: { hp: 1250, atk: 145, def: 70, spd: 108 }, growth: { hp: 130, atk: 14, def: 9, spd: 1.4 },
     skills: ['strike', 'fireball', 'inferno'] },
   aquila: { name: 'Aquila Suci', emoji: '💧', rarity: 4, role: 'Healer', element: 'water',
-    base: { hp: 1300, atk: 120, def: 82, spd: 104 },
-    growth: { hp: 135, atk: 12, def: 10, spd: 1.2 },
+    base: { hp: 1300, atk: 120, def: 82, spd: 104 }, growth: { hp: 135, atk: 12, def: 10, spd: 1.2 },
     skills: ['strike', 'heal', 'mass_heal'] },
   zephyr: { name: 'Zephyr Bayu', emoji: '🌪️', rarity: 4, role: 'Debuffer', element: 'wind',
-    base: { hp: 1180, atk: 158, def: 68, spd: 128 },
-    growth: { hp: 122, atk: 16, def: 8, spd: 1.8 },
-    skills: ['strike', 'shatter'] },
+    base: { hp: 1180, atk: 158, def: 68, spd: 128 }, growth: { hp: 122, atk: 16, def: 8, spd: 1.8 },
+    skills: ['strike', 'shatter', 'gale'] },
   terra: { name: 'Terra Penjaga', emoji: '🗿', rarity: 4, role: 'Tanker', element: 'earth',
-    base: { hp: 1750, atk: 100, def: 125, spd: 88 },
-    growth: { hp: 175, atk: 10, def: 13, spd: 0.9 },
-    skills: ['strike', 'iron_wall'] },
+    base: { hp: 1750, atk: 100, def: 125, spd: 88 }, growth: { hp: 175, atk: 10, def: 13, spd: 0.9 },
+    skills: ['strike', 'iron_wall', 'quake'] },
   nyx: { name: 'Nyx Kelelawar', emoji: '🦇', rarity: 4, role: 'Summoner', element: 'dark',
-    base: { hp: 1200, atk: 135, def: 75, spd: 110 },
-    growth: { hp: 125, atk: 13, def: 9, spd: 1.5 },
-    skills: ['strike', 'summon_bat'] },
+    base: { hp: 1200, atk: 135, def: 75, spd: 110 }, growth: { hp: 125, atk: 13, def: 9, spd: 1.5 },
+    skills: ['strike', 'summon_bat', 'shadow_bolt'] },
   sol: { name: 'Sol Surya', emoji: '☀️', rarity: 4, role: 'Hybrid', element: 'light',
-    base: { hp: 1280, atk: 140, def: 78, spd: 112 },
-    growth: { hp: 130, atk: 14, def: 9, spd: 1.5 },
-    skills: ['strike', 'sun_arrow'] },
+    base: { hp: 1280, atk: 140, def: 78, spd: 112 }, growth: { hp: 130, atk: 14, def: 9, spd: 1.5 },
+    skills: ['strike', 'sun_arrow', 'holy_shield'] },
 
-  // ===== 5★ =====
+  // ===== 5★ (4 SKILL) =====
   ragnarok: { name: 'Ragnarok', emoji: '👹', rarity: 5, role: 'DPS', element: 'dark',
-    base: { hp: 1900, atk: 205, def: 105, spd: 122 },
-    growth: { hp: 180, atk: 21, def: 11, spd: 1.6 },
-    skills: ['strike', 'heavy_blow', 'dark_nova'] },
+    base: { hp: 1900, atk: 205, def: 105, spd: 122 }, growth: { hp: 180, atk: 21, def: 11, spd: 1.6 },
+    skills: ['strike', 'heavy_blow', 'dark_nova', 'war_cry'] },
   seraphine: { name: 'Seraphine Cahaya', emoji: '👼', rarity: 5, role: 'Healer', element: 'light',
-    base: { hp: 1950, atk: 168, def: 118, spd: 118 },
-    growth: { hp: 185, atk: 17, def: 12, spd: 1.5 },
-    skills: ['strike', 'heal', 'mass_heal'] },
+    base: { hp: 1950, atk: 168, def: 118, spd: 118 }, growth: { hp: 185, atk: 17, def: 12, spd: 1.5 },
+    skills: ['strike', 'heal', 'mass_heal', 'holy_shield'] },
   chronos: { name: 'Chronos Waktu', emoji: '⏳', rarity: 5, role: 'Debuffer', element: 'wind',
-    base: { hp: 1850, atk: 190, def: 112, spd: 138 },
-    growth: { hp: 175, atk: 19, def: 12, spd: 2.0 },
-    skills: ['strike', 'weaken', 'shatter'] },
+    base: { hp: 1850, atk: 190, def: 112, spd: 138 }, growth: { hp: 175, atk: 19, def: 12, spd: 2.0 },
+    skills: ['strike', 'weaken', 'shatter', 'time_warp'] },
   aegis: { name: 'Aegis Dewa', emoji: '🛡️', rarity: 5, role: 'Tanker', element: 'earth',
-    base: { hp: 2800, atk: 120, def: 180, spd: 95 },
-    growth: { hp: 280, atk: 12, def: 18, spd: 0.8 },
-    skills: ['strike', 'taunt', 'iron_wall'] },
+    base: { hp: 2800, atk: 120, def: 180, spd: 95 }, growth: { hp: 280, atk: 12, def: 18, spd: 0.8 },
+    skills: ['strike', 'taunt', 'iron_wall', 'quake'] },
   gaia: { name: 'Gaia Ibu Bumi', emoji: '🌳', rarity: 5, role: 'Summoner', element: 'earth',
-    base: { hp: 1900, atk: 175, def: 115, spd: 115 },
-    growth: { hp: 180, atk: 18, def: 12, spd: 1.5 },
-    skills: ['strike', 'summon_ent'] },
+    base: { hp: 1900, atk: 175, def: 115, spd: 115 }, growth: { hp: 180, atk: 18, def: 12, spd: 1.5 },
+    skills: ['strike', 'summon_ent', 'mass_heal', 'guard_up'] },
   void: { name: 'Void Kosong', emoji: '🌌', rarity: 5, role: 'Hybrid', element: 'dark',
-    base: { hp: 2000, atk: 195, def: 110, spd: 125 },
-    growth: { hp: 190, atk: 20, def: 11, spd: 1.7 },
-    skills: ['strike', 'drain_strike', 'dark_nova'] }
+    base: { hp: 2000, atk: 195, def: 110, spd: 125 }, growth: { hp: 190, atk: 20, def: 11, spd: 1.7 },
+    skills: ['strike', 'drain_strike', 'dark_nova', 'weaken'] }
 };
 
 // ----- MONSTER DATABASE -----

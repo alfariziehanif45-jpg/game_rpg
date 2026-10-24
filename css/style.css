@@ -13,17 +13,24 @@
   --success: #3ddc84;
 }
 
-body {
+/* ==========================================
+   SCROLL NORMAL UNTUK SELURUH HALAMAN
+   ========================================== */
+html, body {
+  min-height: 100vh;
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: radial-gradient(circle at top, #1a1d29, #0a0c12 60%);
   color: var(--text);
-  min-height: 100vh;
-  padding-bottom: 40px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow-x: hidden; /* Cegah geser samping */
+  overflow-y: auto;   /* BISA DIGESER ATAS/BAWAH */
 }
 
-#app { max-width: 1100px; margin: 0 auto; padding: 12px; }
+#app { 
+  display: block; 
+  max-width: 1100px; 
+  margin: 0 auto; 
+  padding: max(10px, env(safe-area-inset-top)) 12px max(20px, env(safe-area-inset-bottom)) 12px; 
+}
 
 header {
   display: flex; justify-content: space-between; align-items: center;
@@ -37,7 +44,7 @@ header {
 
 nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; width: 100%; }
 nav button {
-  flex: 1; min-width: 90px; padding: 12px 8px;
+  flex: 1; min-width: 80px; padding: 12px 8px;
   background: var(--panel); color: var(--muted);
   border: 1px solid var(--border); border-radius: 10px;
   cursor: pointer; font-weight: 600; font-size: 0.9rem;
@@ -46,7 +53,7 @@ nav button {
 nav button:hover { background: var(--panel-2); color: var(--text); }
 nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-main { display: block; padding-bottom: 20px; width: 100%; }
+main { display: block; }
 
 .page { display: none; animation: fadeIn 0.25s; }
 .page.active { display: block; }
@@ -57,6 +64,9 @@ h3 { margin: 16px 0 10px; font-size: 1.05rem; }
 .muted { color: var(--muted); }
 .small { font-size: 0.8rem; }
 
+/* ==========================================
+   STYLING KONTEN
+   ========================================== */
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
 .card p { margin: 6px 0; }
 .card ol { padding-left: 20px; line-height: 1.9; }
@@ -82,57 +92,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .rar-5 { border-color: #ffb547 !important; box-shadow: 0 0 20px #ffb54766; }
 .rarity-stars { color: #ffb547; font-size: 0.75rem; letter-spacing: 1px; }
 
-/* ==========================================
-   KARTU KARAKTER (Diperbarui untuk Statistik)
-   ========================================== */
 .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-.char-card { 
-  background: var(--panel); border: 2px solid var(--border); border-radius: 12px; 
-  padding: 12px; text-align: center; position: relative; display: flex; flex-direction: column;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
+.char-card { background: var(--panel); border: 2px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; position: relative; display: flex; flex-direction: column; transition: transform 0.15s, box-shadow 0.15s; }
 .char-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
 .char-emoji { font-size: 2.2rem; margin: 6px 0; }
 .char-name { font-weight: 700; font-size: 0.9rem; }
 .char-sub { font-size: 0.72rem; color: var(--muted); margin: 2px 0 6px 0; }
 .char-lv { font-size: 0.8rem; color: var(--accent-2); font-weight: 800; }
-
-/* Grid untuk ATK, DEF, HP, SPD */
-.char-stats { 
-  display: grid; 
-  grid-template-columns: 1fr 1fr; 
-  gap: 4px; 
-  font-size: 0.7rem; 
-  margin-top: 8px; 
-  color: var(--text); 
-  background: rgba(0,0,0,0.2); 
-  padding: 6px; 
-  border-radius: 6px;
-}
-
-/* Teks EXP */
-.char-exp {
-  font-size: 0.65rem;
-  color: var(--accent-2);
-  background: rgba(255, 181, 71, 0.1);
-  padding: 4px;
-  border-radius: 6px;
-  margin-top: 6px;
-  font-weight: bold;
-}
-
+.char-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.7rem; margin-top: 8px; color: var(--text); background: rgba(0,0,0,0.2); padding: 6px; border-radius: 6px; }
+.char-exp { font-size: 0.65rem; color: var(--accent-2); background: rgba(255, 181, 71, 0.1); padding: 4px; border-radius: 6px; margin-top: 6px; font-weight: bold; }
 .char-card .mini-btn { margin-top: 8px; width: 100%; padding: 6px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; }
 .char-card .mini-btn:hover { background: var(--accent); }
 .char-card.in-team { border-color: var(--success) !important; }
 
-/* EVOLVE UI & PARTIKEL (OPTIMIZED) */
 .evo-container { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .evo-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; position: relative; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); z-index: 1; }
 .star-yellow { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.6); border-color: rgba(255,215,0,0.3); }
 .star-red { color: #ff4d5e; text-shadow: 0 0 10px rgba(255,77,94,0.8); border-color: rgba(255,77,94,0.4); }
 .star-blue { color: #00e5ff; text-shadow: 0 0 12px rgba(0,229,255,0.9); border-color: rgba(0,229,255,0.6); box-shadow: 0 0 15px rgba(0,229,255,0.3); }
 
-/* PARTIKEL: Dioptimalkan untuk HP */
 .particle-element { position: absolute; top: 50%; left: 50%; width: 2px; height: 2px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%) translateZ(0); z-index: -1; animation: pulseParticle 1.5s infinite alternate; will-change: transform, box-shadow; }
 @keyframes pulseParticle { 0% { opacity: 0.4; transform: translate(-50%, -50%) translateZ(0) scale(0.8); } 100% { opacity: 1; transform: translate(-50%, -50%) translateZ(0) scale(1.2); } }
 .particles-1 .particle-element { box-shadow: 0 -15px 3px #00e5ff, 0 15px 3px #00e5ff, -20px 0 3px #00e5ff, 20px 0 3px #00e5ff; }
@@ -142,6 +120,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .particles-5 .particle-element { box-shadow: 0 -15px 8px #00e5ff, 0 15px 8px #00e5ff, -20px 0 8px #00e5ff, 20px 0 8px #00e5ff, -15px -15px 6px #00e5ff, 15px 15px 6px #00e5ff, -15px 15px 6px #00e5ff, 15px -15px 6px #00e5ff, 0 -35px 10px #00e5ff, 0 35px 10px #00e5ff, -35px 0 10px #00e5ff, 35px 0 10px #00e5ff, -25px -25px 8px #00e5ff, 25px 25px 8px #00e5ff, -25px 25px 8px #00e5ff, 25px -25px 8px #00e5ff, -40px -15px 6px #00e5ff, 40px 15px 6px #00e5ff, -40px 15px 6px #00e5ff, 40px -15px 6px #00e5ff; }
 
 .evolve-btn { background: var(--accent) !important; color: #fff !important; font-weight: bold; }
+.max-evolve-btn { background: linear-gradient(135deg, #ffb547, #e08f1a) !important; color: #1a1d29 !important; font-weight: 800 !important; border: none !important; box-shadow: 0 0 10px rgba(255, 181, 71, 0.3); }
 
 .team-slots { min-height: 60px; }
 .empty-slot { border: 2px dashed var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.8rem; min-height: 160px; }
@@ -154,65 +133,88 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .stage-card button { width: 100%; padding: 10px; margin-top: 8px; }
 .boss-tag { color: var(--danger); font-weight: 700; font-size: 0.75rem; }
 
-.battle-overlay { position: fixed; inset: 0; background: #0f1117; z-index: 9999; display: flex; flex-direction: column; padding: 12px; max-width: 900px; margin: 0 auto; overflow-y: auto; }
+/* FILTER & SORTING UI */
+.filters-container { display: flex; flex-wrap: wrap; gap: 12px; background: var(--panel); padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); align-items: center; }
+.filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filter-label { font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-right: 4px; }
+.filter-btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; }
+.filter-btn:hover { background: var(--border); }
+.filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; outline: none; cursor: pointer; }
+
+/* ==========================================
+   BATTLE OVERLAY (FULL SCREEN & TERKUNCI)
+   ========================================== */
+.battle-overlay { 
+  position: fixed; 
+  inset: 0; 
+  background: #0f1117; 
+  z-index: 9999; 
+  display: flex; 
+  flex-direction: column; 
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) 12px; 
+  max-width: 900px; 
+  margin: 0 auto; 
+  overflow: hidden; /* Kunci scroll utama */
+}
 .battle-overlay.hidden { display: none; }
-.battle-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+.battle-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-shrink: 0; }
 .round-info { font-weight: 700; color: var(--accent-2); }
 .small-btn { padding: 8px 14px !important; font-size: 0.8rem !important; }
 
-.unit-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 6px 0; }
+.unit-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 6px 0; flex-shrink: 0; }
 .unit-card { flex: 1 1 180px; max-width: 220px; display: flex; gap: 8px; align-items: center; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 8px; transition: all 0.2s; cursor: default; }
 .unit-card.current { border-color: var(--accent-2); box-shadow: 0 0 16px #ffb54766; transform: translateY(-3px); }
 .unit-card.dead { opacity: 0.3; filter: grayscale(1); }
 .unit-emoji { font-size: 1.8rem; }
 .unit-info { flex: 1; min-width: 0; }
 .unit-name { font-size: 0.78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
-.unit-meta { font-size: 0.65rem; color: var(--muted); }
-
-.hp-bar, .mp-bar { position: relative; height: 12px; background: #0a0c12; border-radius: 6px; overflow: hidden; margin: 3px 0; }
-.hp-fill { height: 100%; background: linear-gradient(90deg, #3ddc84, #23a35f); transition: width 0.3s; }
-.bar-text { position: absolute; inset: 0; font-size: 0.6rem; text-align: center; line-height: 12px; color: #fff; text-shadow: 0 1px 2px #000; font-weight: 700; }
-
-/* INDIKATOR STATUS (Buff / Debuff) */
 .status-icon { font-size: 0.6rem; padding: 2px 4px; border-radius: 4px; font-weight: 800; }
 .status-icon.shield { background: #4aa8ff; color: #fff; }
 .status-icon.taunt { background: #ffb547; color: #000; }
 .status-icon.debuff { background: #ff4d5e; color: #fff; }
 
-.battle-log { flex: 1; min-height: 80px; max-height: 180px; overflow-y: auto; background: #0a0c12; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin: 8px 0; font-size: 0.8rem; line-height: 1.7; }
+.hp-bar, .mp-bar { position: relative; height: 12px; background: #0a0c12; border-radius: 6px; overflow: hidden; margin: 3px 0; }
+.hp-fill { height: 100%; background: linear-gradient(90deg, #3ddc84, #23a35f); transition: width 0.3s; }
+.bar-text { position: absolute; inset: 0; font-size: 0.6rem; text-align: center; line-height: 12px; color: #fff; text-shadow: 0 1px 2px #000; font-weight: 700; }
+
+/* Area Log bisa di scroll jika kepanjangan */
+.battle-log { 
+  flex: 1; 
+  min-height: 80px; 
+  overflow-y: auto; /* Scroll khusus log */
+  background: #0a0c12; 
+  border: 1px solid var(--border); 
+  border-radius: 10px; 
+  padding: 10px; 
+  margin: 8px 0; 
+  font-size: 0.8rem; 
+  line-height: 1.7; 
+}
 .eff-good { color: var(--success); font-weight: 700; }
 .eff-bad { color: var(--muted); }
 
-/* ==========================================
-   ACTION BAR (SKILL ROLE)
-   ========================================== */
-.action-bar { min-height: 140px; background: var(--panel); padding: 16px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); }
+/* Action Bar */
+.action-bar { min-height: 140px; background: var(--panel); padding: 16px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); flex-shrink: 0; }
 .actor-label { text-align: center; margin-bottom: 12px; color: var(--text); font-size: 1rem; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 8px; }
 .actor-label b { color: var(--accent-2); }
 .action-buttons { display: flex; flex-direction: column; gap: 8px; }
 .skill-btn { display: flex; align-items: center; width: 100%; text-align: left; border: none; border-radius: 12px; padding: 10px 14px; cursor: pointer; transition: transform 0.1s, filter 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
 .skill-btn:active:not(.disabled) { transform: scale(0.98); }
 .skill-btn.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-
-/* Warna Tombol Berdasarkan Tipe Skill */
 .basic-btn { background: linear-gradient(135deg, #2e3348, #1a1d29); border: 1px solid #4a5070; color: #fff; }
 .basic-btn:hover:not(.disabled) { background: linear-gradient(135deg, #3b4260, #222636); border-color: #7c5cff; }
-
 .ult-btn { background: linear-gradient(135deg, #ff4d5e, #b01c2b); border: 1px solid #ff7b88; color: #fff; }
 .ult-btn:hover:not(.disabled) { background: linear-gradient(135deg, #ff6b7a, #d12333); box-shadow: 0 0 15px rgba(255, 77, 94, 0.4); }
-
 .heal-btn { background: linear-gradient(135deg, #3ddc84, #23a35f); border: 1px solid #3ddc84; color: #fff; }
 .heal-btn:hover:not(.disabled) { background: linear-gradient(135deg, #4bef95, #2ebd6d); box-shadow: 0 0 15px rgba(61,220,132,0.4); }
-
 .buff-btn { background: linear-gradient(135deg, #4aa8ff, #2563eb); border: 1px solid #4aa8ff; color: #fff; }
 .buff-btn:hover:not(.disabled) { background: linear-gradient(135deg, #5eb5ff, #3474f5); box-shadow: 0 0 15px rgba(74,168,255,0.4); }
-
 .debuff-btn { background: linear-gradient(135deg, #a06bff, #7c5cff); border: 1px solid #a06bff; color: #fff; }
 .debuff-btn:hover:not(.disabled) { background: linear-gradient(135deg, #b07bff, #8c6cff); box-shadow: 0 0 15px rgba(160,107,255,0.4); }
-
 .summon-btn { background: linear-gradient(135deg, #ffb547, #e08f1a); border: 1px solid #ffb547; color: #1a1d29; }
 .summon-btn:hover:not(.disabled) { background: linear-gradient(135deg, #ffc557, #f09f2a); box-shadow: 0 0 15px rgba(255,181,71,0.4); }
-
 .skill-icon { font-size: 1.8rem; margin-right: 15px; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 50%; }
 .skill-text { display: flex; flex-direction: column; flex: 1; }
 .skill-name { font-weight: 800; font-size: 1rem; letter-spacing: 0.5px; }
@@ -241,8 +243,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .start-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 20px; }
 .start-hint { color: var(--muted); font-size: 0.75rem; margin-top: 16px; }
 
-@media (orientation: portrait) {
-  #app { padding: 8px; }
+/* RESPONSIVE LAYOUT */
+@media (max-width: 600px) {
   header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
   .resources { width: 100%; justify-content: space-between; }
   nav { gap: 4px; }
@@ -253,160 +255,3 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   .gacha-btns button { width: 100%; max-width: 280px; }
   .banner { padding: 16px; }
 }
-
-@media (orientation: landscape) {
-  header { flex-direction: row; align-items: center; }
-  nav button { flex: 1; min-width: 100px; }
-  .char-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-  .stage-list { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-  .gacha-btns { flex-direction: row; }
-}
-
-/* (Tambahkan ini di bagian paling bawah file CSS kamu) */
-
-/* ==========================================
-   FILTER & SORTING UI
-   ========================================== */
-.filters-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: var(--panel);
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
-  align-items: center;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--muted);
-  margin-right: 4px;
-}
-
-.filter-btn {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 600;
-  transition: all 0.15s;
-}
-
-.filter-btn:hover {
-  background: var(--border);
-}
-
-.filter-btn.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.filter-select {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  outline: none;
-  cursor: pointer;
-}
-
-/* ==========================================
-   TOMBOL MAX EVOLVE
-   ========================================== */
-.max-evolve-btn {
-  background: linear-gradient(135deg, #ffb547, #e08f1a) !important;
-  color: #1a1d29 !important;
-  font-weight: 800 !important;
-  border: none !important;
-  box-shadow: 0 0 10px rgba(255, 181, 71, 0.3);
-}
-
-.max-evolve-btn:hover {
-  filter: brightness(1.1);
-}
-
-/* ==========================================
-   FILTER & SORTING UI
-   ========================================== */
-.filters-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: var(--panel);
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
-  align-items: center;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--muted);
-  margin-right: 4px;
-}
-
-.filter-btn {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 600;
-  transition: all 0.15s;
-}
-
-.filter-btn:hover { background: var(--border); }
-.filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-.filter-select {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  outline: none;
-  cursor: pointer;
-}
-
-/* ==========================================
-   TOMBOL MAX EVOLVE
-   ========================================== */
-.max-evolve-btn {
-  background: linear-gradient(135deg, #ffb547, #e08f1a) !important;
-  color: #1a1d29 !important;
-  font-weight: 800 !important;
-  border: none !important;
-  box-shadow: 0 0 10px rgba(255, 181, 71, 0.3);
-}
-
-.max-evolve-btn:hover { filter: brightness(1.1); }
