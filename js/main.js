@@ -55,6 +55,10 @@ let currentRarityFilter = 'all';
 let currentSortFilter = 'none';
 let teamRoleFilter = 'all';
 let teamRarityFilter = 'all';
+// Render bertahap: jumlah karakter boleh sangat banyak tanpa membuat DOM membengkak.
+const CHARACTER_PAGE_SIZE = 12;
+let rosterVisibleCount = CHARACTER_PAGE_SIZE;
+let teamVisibleCount = CHARACTER_PAGE_SIZE;
 
 window.setFilter = function(type, value, btnElement) {
   if (type === 'rarity') {
@@ -64,6 +68,7 @@ window.setFilter = function(type, value, btnElement) {
   } else if (type === 'sort') {
     currentSortFilter = value;
   }
+  rosterVisibleCount = CHARACTER_PAGE_SIZE;
   renderRoster();
 };
 
@@ -75,6 +80,7 @@ window.setTeamFilter = function(type, value, btnElement) {
     document.querySelectorAll('#page-team .filter-btn').forEach(btn => btn.classList.remove('active'));
     if (btnElement) btnElement.classList.add('active');
   }
+  teamVisibleCount = CHARACTER_PAGE_SIZE;
   renderTeam();
 };
 
@@ -198,11 +204,24 @@ function renderRoster() {
   if (currentSortFilter === 'evo_desc') roster.sort((a, b) => (b.evo || 1) - (a.evo || 1));
   else if (currentSortFilter === 'evo_asc') roster.sort((a, b) => (a.evo || 1) - (b.evo || 1));
   
-  grid.innerHTML = roster.map(inst => {
-    const isInTeam = Player.data.team.includes(inst.uid);
-    return createCharCard(inst, isInTeam);
-  }).join('');
+  const total = roster.length;
+  const visible = roster.slice(0, rosterVisibleCount);
+  const cardsHtml = visible.map(inst => createCharCard(inst, Player.data.team.includes(inst.uid))).join('');
+  const moreHtml = total > visible.length
+    ? `<div class="list-load-more"><span>Menampilkan ${visible.length} dari ${total} karakter</span><button class="primary" onclick="loadMoreCharacters('roster')">Muat 12 lagi</button></div>`
+    : `<div class="list-load-more"><span>${total} karakter</span></div>`;
+  grid.innerHTML = cardsHtml + moreHtml;
 }
+
+window.loadMoreCharacters = function(kind) {
+  if (kind === 'roster') {
+    rosterVisibleCount += CHARACTER_PAGE_SIZE;
+    renderRoster();
+  } else {
+    teamVisibleCount += CHARACTER_PAGE_SIZE;
+    renderTeam();
+  }
+};
 
 function renderTeam() {
   const slotsEl = document.getElementById('teamSlots');
@@ -258,24 +277,27 @@ function renderTeam() {
     }
   }
 
-  // Render Roster Tersedia
-  let rosterHtml = '';
-  Player.data.roster.forEach(inst => {
-    if (Player.data.team.includes(inst.uid)) return;
-    
+  // Filter seluruh data, tetapi hanya buat kartu untuk 12 karakter pertama.
+  // Ini menjaga DOM tetap kecil walau koleksi pemain berisi ribuan karakter.
+  const available = [];
+  for (const inst of Player.data.roster) {
+    if (Player.data.team.includes(inst.uid)) continue;
     const c = CHARACTERS[inst.charId];
-    if (!c) return;
-
-    if (teamRoleFilter !== 'all' && c.role !== teamRoleFilter) return;
-    if (teamRarityFilter !== 'all' && c.rarity !== parseInt(teamRarityFilter)) return;
-
-    rosterHtml += `<div onclick="addToTeam(${inst.uid})" style="cursor:pointer;">${createCharCard(inst, false)}</div>`;
-  });
-  
-  if (!rosterHtml) {
-    rosterHtml = `<div class="muted small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Tidak ada karakter yang cocok dengan filter.</div>`;
+    if (!c) continue;
+    if (teamRoleFilter !== 'all' && c.role !== teamRoleFilter) continue;
+    if (teamRarityFilter !== 'all' && c.rarity !== parseInt(teamRarityFilter)) continue;
+    available.push(inst);
   }
-  
+  const visible = available.slice(0, teamVisibleCount);
+  let rosterHtml = visible.map(inst =>
+    `<div class="team-roster-item" onclick="addToTeam(${inst.uid})">${createCharCard(inst, false)}</div>`
+  ).join('');
+  if (!rosterHtml) rosterHtml = `<div class="muted small" style="grid-column:1/-1;text-align:center;padding:20px;">Tidak ada karakter yang cocok dengan filter.</div>`;
+  if (available.length > visible.length) {
+    rosterHtml += `<div class="list-load-more"><span>Menampilkan ${visible.length} dari ${available.length} karakter</span><button class="primary" onclick="loadMoreCharacters('team')">Muat 12 lagi</button></div>`;
+  } else {
+    rosterHtml += `<div class="list-load-more"><span>${available.length} karakter tersedia</span></div>`;
+  }
   rosterEl.innerHTML = rosterHtml;
 }
 

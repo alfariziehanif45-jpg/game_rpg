@@ -631,3 +631,23 @@ button, .filter-btn, .eq-item-card, .qte-circle {
   #battleLog { contain: content; overflow-anchor: auto; }
   #allyRow, #enemyRow { contain: layout style; }
 }
+
+/* Large-roster performance: keep cards simple and render collection pages incrementally. */
+.list-load-more {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  color: var(--muted);
+  contain: content;
+}
+.team-roster-item { min-width: 0; contain: layout style; }
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  .char-card, .char-card:hover { transform: none !important; transition: none !important; }
+  .char-card { box-shadow: none !important; }
+  .char-card [style*="text-shadow"], .char-card [style*="drop-shadow"] { text-shadow: none !important; filter: none !important; }
+  .team-roster-item, #rosterGrid > .char-card { content-visibility: auto; contain-intrinsic-size: 260px; }
+}
