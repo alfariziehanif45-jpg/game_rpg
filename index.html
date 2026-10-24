@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>RPG Gacha — Idle Heroes</title>
   <link rel="stylesheet" href="css/style.css">
+  
+  <!-- ========================================== -->
+  <!-- KONFIGURASI PWA (PROGRESSIVE WEB APP)      -->
+  <!-- ========================================== -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#7c5cff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RPG Gacha">
+  <!-- Ikon untuk iOS (iPhone/iPad) -->
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3409/3409248.png">
+
   <style>
     #app { display: block !important; width: 100% !important; overflow-x: hidden !important; }
     header { display: flex !important; flex-direction: row !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; }
@@ -148,5 +160,16 @@
 <script src="js/main.js"></script>
 <script src="js/evolve.js"></script>
 <script src="js/start.js"></script>
+
+<!-- Script untuk mendaftarkan Service Worker (agar bisa diinstal) -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('PWA Service Worker aktif!', reg))
+        .catch(err => console.log('Service Worker gagal:', err));
+    });
+  }
+</script>
 </body>
 </html>
