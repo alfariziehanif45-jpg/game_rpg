@@ -8,117 +8,117 @@
   const appScreen = document.getElementById('app');
 
   function startGame(name) {
-    // KUNCI 1: Paksa jadi huruf kecil semua dan hapus spasi (Anti Auto-Capitalize HP)
     const cleanName = name.trim().toLowerCase();
-
-    if (!cleanName) {
-      startError.textContent = 'Nama tidak boleh kosong!';
-      return;
+    if (!cleanName) { 
+      startError.textContent = 'Nama tidak boleh kosong!'; 
+      return; 
     }
 
     window.PLAYER_NAME = cleanName;
+    
+    // Sembunyikan Start Screen & Munculkan Game
     startScreen.classList.add('hidden');
     startScreen.style.display = 'none';
-    
-    if (appScreen) {
-      appScreen.classList.remove('hidden');
+    if (appScreen) { 
+      appScreen.classList.remove('hidden'); 
       appScreen.style.display = 'flex'; 
     }
 
-    // KUNCI 2: Cek cheat dengan nama yang sudah dibersihkan
+    // --- EKSEKUSI CHEAT ---
     try {
       if (cleanName === 'admin') {
-        activateGodMode();
+        applyRealCheat();
         showCheatToast();
       }
-    } catch (err) {
-      console.warn("Cheat error:", err);
+    } catch (err) { 
+      console.warn("Cheat error:", err); 
     }
 
-    // Render Game Awal
+    // --- RENDER GAME ---
     try {
       if (typeof window.initGame === 'function') window.initGame();
       if (typeof window.renderAll === 'function') window.renderAll();
       if (typeof window.updateUI === 'function') window.updateUI();
-    } catch (err) {
-      console.warn("Render error:", err);
+    } catch (err) { 
+      console.warn("Render error:", err); 
     }
   }
 
   // ==========================================
-  // ULTIMATE GOD MODE CHEAT (MOBILE OPTIMIZED)
+  // CHEAT PRESISI (MENEMBAK PLAYER.JS)
   // ==========================================
-  function activateGodMode() {
-    console.log('[CHEAT] Admin mode activated on Mobile!');
+  function applyRealCheat() {
+    console.log('[CHEAT] Admin mode: Unlimited Gems & Gold!');
     
-    // Blokir alert error "Gems tidak cukup"
+    const MAX_VAL = 999999999;
+
+    // 1. Blokir alert error "tidak cukup"
     const originalAlert = window.alert;
     window.alert = function(msg) {
       if (msg.includes("tidak cukup") || msg.includes("Gems") || msg.includes("Gold") || msg.includes("gagal")) {
-        console.log("Blocked error popup:", msg);
-        return; 
+        return; // Abaikan pop-up error
       }
       originalAlert(msg);
     };
 
-    function injectCheatValues() {
-      const MAX_VAL = 999999999;
+    // 2. Cek apakah objek Player ada
+    if (typeof Player !== 'undefined') {
       
-      // Suntik semua variabel global
-      for (let key in window) {
-        try {
-          let obj = window[key];
-          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-            if ('gems' in obj) obj.gems = MAX_VAL;
-            if ('gold' in obj) obj.gold = MAX_VAL;
-            if ('gem' in obj) obj.gem = MAX_VAL;
-            if ('diamond' in obj) obj.diamond = MAX_VAL;
-            
-            if (obj.player && typeof obj.player === 'object') {
-              if ('gems' in obj.player) obj.player.gems = MAX_VAL;
-              if ('gold' in obj.player) obj.player.gold = MAX_VAL;
-            }
-            if (obj.state && typeof obj.state === 'object') {
-              if ('gems' in obj.state) obj.state.gems = MAX_VAL;
-              if ('gold' in obj.state) obj.state.gold = MAX_VAL;
-            }
-          }
-        } catch (e) {}
+      // A. Set Saldo Awal
+      Player.data.gold = MAX_VAL;
+      Player.data.gems = MAX_VAL;
+
+      // B. OVERRIDE FUNGSI BELANJA (Kunci Utama!)
+      // Saat game mau beli Gacha, paksa selalu sukses dan isi ulang saldonya
+      Player.spendGold = function(n) {
+        this.data.gold = MAX_VAL;
+        return true; 
+      };
+      Player.spendGems = function(n) {
+        this.data.gems = MAX_VAL;
+        return true; 
+      };
+
+      // C. Max Level Karakter Saat Ini
+      if (Array.isArray(Player.data.roster)) {
+        Player.data.roster.forEach(char => {
+          char.level = 60; // Max level di game kamu adalah 60
+          char.exp = 0;
+        });
       }
 
-      // Update localStorage
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          let k = localStorage.key(i);
-          let val = localStorage.getItem(k);
-          if (val && val.startsWith('{')) {
-            let d = JSON.parse(val);
-            if ('gems' in d) d.gems = MAX_VAL;
-            if ('gold' in d) d.gold = MAX_VAL;
-            if ('gem' in d) d.gem = MAX_VAL;
-            localStorage.setItem(k, JSON.stringify(d));
-          }
-        }
-      } catch(e){}
+      // D. OVERRIDE FUNGSI TAMBAH KARAKTER
+      // Agar karakter yang baru didapat dari Gacha langsung Level 60
+      const originalAddChar = Player.addCharacter;
+      Player.addCharacter = function(charId) {
+        const inst = originalAddChar.call(this, charId);
+        inst.level = 60;
+        inst.exp = 0;
+        return inst;
+      };
 
-      // Paksa update teks di layar
+      // E. Simpan & Panggil Update UI
+      Player.save();
+      if (typeof window.renderAll === 'function') window.renderAll();
+      if (typeof window.updateUI === 'function') window.updateUI();
+    }
+
+    // 3. Paksa Update Tampilan Angka di Header Layar
+    function updateHeaderText() {
       const goldEl = document.getElementById('goldDisplay');
       const gemEl = document.getElementById('gemDisplay');
       if (goldEl) goldEl.innerText = `💰 ${MAX_VAL.toLocaleString()}`;
       if (gemEl) gemEl.innerText = `💎 ${MAX_VAL.toLocaleString()}`;
-      
-      // Panggil fungsi update UI game (jika ada) agar sinkron
-      if (typeof window.updateUI === 'function') window.updateUI();
     }
 
-    // Jalankan secepat kilat (50ms) agar tidak di-reset oleh HP
-    injectCheatValues();
-    setInterval(injectCheatValues, 50);
+    updateHeaderText();
+    setInterval(updateHeaderText, 1000); // Jaga-jaga agar teks tidak berubah
   }
 
+  // --- TOAST NOTIFIKASI ---
   function showCheatToast() {
     const toast = document.createElement('div');
-    toast.textContent = '🔥 CHEAT ADMIN AKTIF!';
+    toast.textContent = '🔥 CHEAT ADMIN AKTIF! Gacha Gratis & Max Level!';
     toast.style.cssText = `
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #ffb547, #e08f1a); color: #1a1d29;
@@ -133,6 +133,7 @@
     }, 4000);
   }
 
+  // Event Listener
   startBtn.addEventListener('click', () => startGame(nameInput.value));
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') startGame(nameInput.value);
