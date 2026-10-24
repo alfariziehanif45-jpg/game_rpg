@@ -398,6 +398,10 @@ window.openSkillModal = function(uid) {
 // ==========================================
 // EQUIPMENT MODAL UI
 // ==========================================
+window.equipTypeFilter = window.equipTypeFilter || 'all';
+window.equipRarityFilter = window.equipRarityFilter || 'all';
+window.setEquipmentFilter = function(kind, value, uid) { if (kind === 'type') window.equipTypeFilter = value; else window.equipRarityFilter = value; openEquipModal(uid); };
+
 window.openEquipModal = function(uid) {
   try {
     const inst = Player.getInstance(uid);
@@ -444,7 +448,23 @@ window.openEquipModal = function(uid) {
       }
     });
     
-    html += `</div><h4 style="margin-top:10px; margin-bottom:10px;">Tas Equipment (Klik untuk pasang)</h4>`;
+    html += `</div><h4 style="margin-top:10px; margin-bottom:10px;">Tas Equipment (Klik untuk pasang)</h4>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+        <label style="flex:1; min-width:130px;">Jenis
+          <select onchange="setEquipmentFilter('type', this.value, ${uid})" style="width:100%; padding:8px; border-radius:8px; background:var(--panel-2); color:var(--text); border:1px solid var(--border);">
+            <option value="all" ${window.equipTypeFilter==='all'?'selected':''}>Semua jenis</option>
+            <option value="weapon" ${window.equipTypeFilter==='weapon'?'selected':''}>Senjata</option>
+            <option value="armor" ${window.equipTypeFilter==='armor'?'selected':''}>Armor</option>
+            <option value="accessory" ${window.equipTypeFilter==='accessory'?'selected':''}>Aksesoris</option>
+          </select>
+        </label>
+        <label style="flex:1; min-width:130px;">Rarity
+          <select onchange="setEquipmentFilter('rarity', this.value, ${uid})" style="width:100%; padding:8px; border-radius:8px; background:var(--panel-2); color:var(--text); border:1px solid var(--border);">
+            <option value="all" ${window.equipRarityFilter==='all'?'selected':''}>Semua rarity</option>
+            ${EQUIP_RARITIES.map((r,i)=>`<option value="${i}" ${String(window.equipRarityFilter)===String(i)?'selected':''}>${r.name}</option>`).join('')}
+          </select>
+        </label>
+      </div>`;
     
     const equippedIds = [];
     Player.data.roster.forEach(r => {
@@ -455,10 +475,10 @@ window.openEquipModal = function(uid) {
       }
     });
     
-    const availableItems = Player.data.inventory.filter(item => !equippedIds.includes(item.id));
+    const availableItems = Player.data.inventory.filter(item => !equippedIds.includes(item.id) && (window.equipTypeFilter === 'all' || item.type === window.equipTypeFilter) && (window.equipRarityFilter === 'all' || String(item.rarity) === String(window.equipRarityFilter)));
     
     if (availableItems.length === 0) {
-      html += `<p class="muted small" style="text-align:center;">Belum ada equipment di tas.</p>`;
+      html += `<p class="muted small" style="text-align:center;">Tidak ada equipment yang cocok dengan filter ini.</p>`;
     } else {
       html += `<div class="eq-inventory">`;
       availableItems.forEach(item => {

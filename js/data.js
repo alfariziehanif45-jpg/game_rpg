@@ -76,7 +76,13 @@ const SKILLS = {
   nox_true_blade: { name: 'True Blade: Oblivion', mp: 40, type: 'damage', power: 8.0, target: 'enemy', aoe: false, element: 'dark', desc: 'Kekuatan pedang sejati yang menghancurkan segalanya.' },
 
   // SKILL SUPPORT (Hanya 1, tidak bisa nyerang)
-  support_inspire: { name: 'Inspirasi Tempur', mp: 0, type: 'support', target: 'ally', aoe: true, element: 'light', desc: 'Meningkatkan ATK, Crit, & Crit Dmg DPS sebesar 60% (3 Ronde).' }
+  support_inspire: { name: 'Inspirasi Tempur', mp: 0, type: 'support', target: 'ally', aoe: true, element: 'light', desc: 'Meningkatkan ATK, Crit, & Crit Dmg DPS sebesar 60% (3 Ronde).' },
+  shadow_mark: { name: 'Shadow Mark', mp: 20, type: 'debuff', target: 'enemy', debuff: 'damageTaken', amount: 0.30, turns: 3, element: 'dark', desc: 'Musuh menerima damage 30% lebih besar selama 3 turn.' },
+  armor_rupture: { name: 'Armor Rupture', mp: 25, type: 'debuff', target: 'enemy', debuff: 'defDown', amount: 0.40, turns: 3, element: 'dark', desc: 'Mengurangi DEF musuh 40% selama 3 turn.' },
+  war_hymn: { name: 'War Hymn', mp: 25, type: 'teamBuff', buff: 'atk', amount: 0.50, turns: 2, element: 'light', desc: 'ATK seluruh tim +50% selama 2 turn.' },
+  critical_blessing: { name: 'Critical Blessing', mp: 25, type: 'teamBuff', buff: 'critDmg', amount: 0.60, turns: 2, element: 'light', desc: 'Critical damage seluruh tim +60% selama 2 turn.' },
+  lightning_rush: { name: 'Lightning Rush', mp: 30, type: 'multiHit', hits: 5, power: 0.70, target: 'enemy', element: 'wind', desc: 'Menyerang 5 kali, tiap hit 70% ATK.' },
+  resonance_break: { name: 'Resonance Break', mp: 20, type: 'resonance', target: 'enemy', element: 'wind', desc: 'Menambahkan 1 stack Resonance (maks. 5); tiap stack meningkatkan finisher berikutnya 12%.' }
 };
 
 const CHARACTERS = {
@@ -86,6 +92,10 @@ const CHARACTERS = {
   muse: { name: 'Muse of War', emoji: '🎻', rarity: 5, role: 'Support', element: 'light', base: { hp: 2200, atk: 50, def: 140, spd: 140 }, growth: { hp: 200, atk: 5, def: 15, spd: 2.5 }, skills: ['support_inspire'] },
   bard: { name: 'Heroic Bard', emoji: '🎺', rarity: 5, role: 'Support', element: 'wind', base: { hp: 2100, atk: 60, def: 130, spd: 135 }, growth: { hp: 190, atk: 6, def: 14, spd: 2.2 }, skills: ['support_inspire'] },
   oracle: { name: 'Cosmic Oracle', emoji: '🔮', rarity: 5, role: 'Support', element: 'dark', base: { hp: 2300, atk: 40, def: 150, spd: 145 }, growth: { hp: 210, atk: 4, def: 16, spd: 2.8 }, skills: ['support_inspire'] },
+
+  shadow: { name: 'Shadow', emoji: '🌑', rarity: 5, role: 'Debuffer', element: 'dark', base: { hp: 2050, atk: 205, def: 120, spd: 142 }, growth: { hp: 190, atk: 20, def: 12, spd: 2.1 }, skills: ['shadow_mark', 'armor_rupture'] },
+  celestia: { name: 'Celestia', emoji: '🎼', rarity: 5, role: 'Buffer', element: 'light', base: { hp: 2200, atk: 115, def: 145, spd: 140 }, growth: { hp: 205, atk: 11, def: 15, spd: 2.2 }, skills: ['war_hymn', 'critical_blessing'] },
+  raizen: { name: 'Raizen', emoji: '⚡', rarity: 5, role: 'Combo Builder', element: 'wind', base: { hp: 2150, atk: 220, def: 115, spd: 150 }, growth: { hp: 195, atk: 22, def: 11, spd: 2.4 }, skills: ['lightning_rush', 'resonance_break'] },
 
   // ===== DPS / LAINNYA =====
   alden: { name: 'Sir Alden', emoji: '🗡️', rarity: 3, role: 'DPS', element: 'fire', base: { hp: 1000, atk: 95, def: 62, spd: 98 }, growth: { hp: 90, atk: 9, def: 6, spd: 1.2 }, skills: ['strike', 'heavy_blow'] },

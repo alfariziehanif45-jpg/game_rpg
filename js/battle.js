@@ -25,6 +25,7 @@ const Battle = {
     this.waitingForInput = false;
     this.rules = { noHeal: false, noPotion: false, reverse: false };
     this.noxAdaptationStacks = 0;
+    this.finisherBonus = 0;
     
     document.getElementById('battleOverlay').classList.remove('hidden');
     document.getElementById('battleResult').classList.add('hidden');
@@ -41,7 +42,7 @@ const Battle = {
         atk: stats.atk, def: stats.def, spd: stats.spd,
         crit: stats.crit || 0, critDmg: stats.critDmg || 0,
         evo: u.evo || 1, cooldown: 0, skillCooldowns: {},
-        buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false, supportAtk: 0, supportCrit: 0, supportCritDmg: 0 }
+        buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false, supportAtk: 0, supportCrit: 0, supportCritDmg: 0, teamAtk: 0, teamCritDmg: 0 }, debuffs: {}, resonance: 0
       };
     });
 
@@ -181,6 +182,11 @@ const Battle = {
           if (u.buffs.supportAtk > 0) u.buffs.supportAtk--;
           if (u.buffs.supportCrit > 0) u.buffs.supportCrit--;
           if (u.buffs.supportCritDmg > 0) u.buffs.supportCritDmg--;
+          if (u.buffs.teamAtk > 0) u.buffs.teamAtk--;
+          if (u.buffs.teamCritDmg > 0) u.buffs.teamCritDmg--;
+        }
+        if (u.debuffs) {
+          Object.keys(u.debuffs).forEach(k => { if (u.debuffs[k].turns > 0) u.debuffs[k].turns--; if (u.debuffs[k].turns <= 0) delete u.debuffs[k]; });
         }
       });
     }
@@ -228,7 +234,51 @@ const Battle = {
     let actorAtk = actor.atk;
     if (actor.buffs && actor.buffs.atk > 0) actorAtk = Math.floor(actorAtk * 1.5);
 
-    if (skill.type === 'support') {
+    if (skill.type === 'teamBuff') {
+      aliveAllies.forEach(a => {
+        if (!a.buffs) a.buffs = {};
+        if (skill.buff === 'atk') a.buffs.teamAtk = Math.max(a.buffs.teamAtk || 0, skill.turns + (actor.charId === 'celestia' ? 1 : 0));
+        if (skill.buff === 'critDmg') a.buffs.teamCritDmg = Math.max(a.buffs.teamCritDmg || 0, skill.turns + (actor.charId === 'celestia' ? 1 : 0));
+      });
+      this.log(`✨ ${actor.name} memperkuat seluruh tim dengan ${skill.name}!`);
+    }
+    else if (skill.type === 'debuff') {
+      if (target) {
+        if (!target.debuffs) target.debuffs = {};
+        target.debuffs[skill.debuff] = { amount: skill.amount, turns: skill.turns };
+        if (skill.debuff === 'defDown') target.defDown = skill.amount;
+        if (actor.charId === 'shadow') {
+          const count = Object.keys(target.debuffs).length;
+          this.finisherBonus = Math.min(0.25, (this.finisherBonus || 0) + 0.05);
+          this.log(`☠️ ${target.name} terkena ${skill.name}. Bonus finisher tim +5% per debuff (maks. +25%).`);
+        } else this.log(`☠️ ${target.name} terkena ${skill.name} selama ${skill.turns} turn!`);
+      }
+    }
+    else if (skill.type === 'resonance') {
+      actor.resonance = Math.min(5, (actor.resonance || 0) + 1);
+      this.finisherBonus = Math.min(0.60, (this.finisherBonus || 0) + 0.12);
+      this.log(`⚡ Resonance ${actor.resonance}/5! Finisher berikutnya mendapat bonus damage +12% per stack.`);
+    }
+    else if (skill.type === 'multiHit') {
+      if (target) {
+        let total = 0;
+        for (let i = 0; i < skill.hits && target.hp > 0; i++) {
+          const mitigation = target.def / (target.def + 100);
+          let dmg = Math.max(1, Math.floor(actorAtk * skill.power * (1 - mitigation)));
+          if (target.debuffs && target.debuffs.damageTaken) dmg = Math.floor(dmg * (1 + target.debuffs.damageTaken.amount));
+          if (target.debuffs && target.debuffs.defDown) dmg = Math.floor(dmg * (1 + target.debuffs.defDown.amount));
+          target.hp = Math.max(0, target.hp - dmg); total += dmg;
+          this.log(`⚡ Hit ${i + 1}: ${target.name} menerima ${dmg} DMG.`);
+        }
+        if (actor.charId === 'raizen') {
+          actor.resonance = Math.min(5, (actor.resonance || 0) + skill.hits);
+          this.finisherBonus = Math.min(0.60, (this.finisherBonus || 0) + 0.12 * Math.min(skill.hits, 5));
+          this.log(`🔗 Resonance ${actor.resonance}/5 — Overload meningkatkan finisher berikutnya!`);
+        }
+        if (target.hp === 0) this.log(`💀 ${target.name} tumbang!`);
+      }
+    }
+    else if (skill.type === 'support') {
       aliveAllies.forEach(a => {
         if (['DPS', 'Hybrid', 'True Blade'].includes(a.role)) {
           a.buffs.supportAtk = 3;
@@ -243,8 +293,15 @@ const Battle = {
         let targetDef = targetUnit.def;
         if (targetUnit.buffs && targetUnit.buffs.def > 0) targetDef = Math.floor(targetDef * 1.5);
         
+        if (targetUnit.debuffs && targetUnit.debuffs.defDown) targetDef = Math.floor(targetDef * (1 - targetUnit.debuffs.defDown.amount));
         const mitigation = targetDef / (targetDef + 100);
         let dmg = Math.max(1, Math.floor((actorAtk * skill.power) * (1 - mitigation)));
+        if (targetUnit.debuffs && targetUnit.debuffs.damageTaken) dmg = Math.floor(dmg * (1 + targetUnit.debuffs.damageTaken.amount));
+        if (actor.buffs && actor.buffs.teamAtk > 0) dmg = Math.floor(dmg * 1.5);
+        if (skill.power >= 4 || ['nox_execution', 'nox_true_blade'].includes(skillId)) {
+          dmg = Math.floor(dmg * (1 + (this.finisherBonus || 0)));
+          if (this.finisherBonus) { this.log(`💥 Finisher bonus +${Math.round(this.finisherBonus * 100)}%!`); this.finisherBonus = 0; }
+        }
         
         if (actor.buffs && actor.buffs.supportAtk > 0) {
           dmg = Math.floor(dmg * 1.6); 
@@ -253,10 +310,8 @@ const Battle = {
         let critChance = actor.crit || 0;
         let critDmgMult = 1.5 + ((actor.critDmg || 0) / 100); 
         
-        if (actor.buffs && actor.buffs.supportCrit > 0) {
-          critChance += 60; 
-          critDmgMult += 0.6; 
-        }
+        if (actor.buffs && actor.buffs.supportCrit > 0) { critChance += 60; critDmgMult += 0.6; }
+        if (actor.buffs && actor.buffs.teamCritDmg > 0) critDmgMult += 0.6;
 
         let isCrit = false;
         if (Math.random() * 100 < critChance) {

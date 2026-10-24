@@ -6,7 +6,7 @@ const Gacha = {
   PITY_MAX: 40,
 
   POOL: {
-    5: ['seraphine', 'ragnarok', 'chronos', 'aegis', 'gaia', 'void'],
+    5: ['seraphine', 'ragnarok', 'chronos', 'aegis', 'gaia', 'void', 'shadow', 'celestia', 'raizen'],
     4: ['ignis', 'aquila', 'zephyr', 'terra', 'nyx', 'sol'],
     3: ['alden', 'mira', 'kael', 'sera', 'brom', 'lyra'],
   },
