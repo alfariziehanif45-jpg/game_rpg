@@ -78,20 +78,26 @@ window.setTeamFilter = function(type, value, btnElement) {
   renderTeam();
 };
 
+// Render hanya halaman yang sedang dibuka. Sebelumnya setiap perubahan tim
+// membangun ulang roster, stage, crafting, dan shop sekaligus sehingga berat di HP.
 window.renderAll = function() {
   try {
     renderStats();
-    renderRoster();
-    renderTeam();
-    renderStages();
-    renderCrafting();
-    renderShop();
-    
+
     const goldEl = document.getElementById('goldDisplay');
     const gemEl = document.getElementById('gemDisplay');
-    
     if (goldEl) goldEl.innerText = `💰 ${(Player.data.gold || 0).toLocaleString()}`;
     if (gemEl) gemEl.innerText = `💎 ${(Player.data.gems || 0).toLocaleString()}`;
+
+    const activePage = document.querySelector('.page.active');
+    const pageId = activePage?.id || 'page-home';
+    switch (pageId) {
+      case 'page-roster': renderRoster(); break;
+      case 'page-team': renderTeam(); break;
+      case 'page-battle': renderStages(); break;
+      case 'page-craft': renderCrafting(); break;
+      case 'page-shop': renderShop(); break;
+    }
   } catch (e) {
     console.error("Render error:", e);
   }
@@ -274,13 +280,19 @@ function renderTeam() {
 }
 
 window.addToTeam = function(uid) {
-  if (Player.addToTeam(uid)) renderAll();
-  else alert('Tim sudah penuh atau kamu sudah memiliki Support di tim! (Maksimal 4 karakter & 1 Support)');
+  if (Player.addToTeam(uid)) {
+    renderStats();
+    renderTeam();
+    // Roster hanya perlu diperbarui jika sedang terlihat.
+    if (document.getElementById('page-roster')?.classList.contains('active')) renderRoster();
+  } else alert('Tim sudah penuh atau kamu sudah memiliki Support di tim! (Maksimal 4 karakter & 1 Support)');
 };
 
 window.removeFromTeam = function(uid) {
   if (Player.removeFromTeam(uid)) {
-    renderAll();
+    renderStats();
+    renderTeam();
+    if (document.getElementById('page-roster')?.classList.contains('active')) renderRoster();
   }
 };
 
