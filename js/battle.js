@@ -714,7 +714,8 @@ const Battle = {
 
     // Messages intentionally contain limited inline formatting (span/b). Render
     // that formatting instead of exposing literal HTML tags in the battle log.
-    const wasNearBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 48;
+    // Avoid synchronous layout reads on every combat log update (costly on mobile).
+    // Auto-scroll is throttled to one frame and only when the log is already at the bottom.
     const line = document.createElement('div');
     line.innerHTML = String(msg)
       .replace(/<\s*(script|style|iframe|object)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
@@ -724,8 +725,15 @@ const Battle = {
 
     // A bounded log prevents long battles from creating thousands of DOM nodes.
     while (logEl.childElementCount > 60) logEl.firstElementChild.remove();
-    // Avoid forcing a layout/scroll calculation when the player is reading older lines.
-    if (wasNearBottom) logEl.scrollTop = logEl.scrollHeight;
+    if (!logEl._scrollScheduled) {
+      logEl._scrollScheduled = true;
+      requestAnimationFrame(() => {
+        logEl._scrollScheduled = false;
+        if (!logEl.isConnected) return;
+        const nearBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 72;
+        if (nearBottom) logEl.scrollTop = logEl.scrollHeight;
+      });
+    }
   },
 
   checkEnd() {
