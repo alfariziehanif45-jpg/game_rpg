@@ -9,94 +9,110 @@
 
   function startGame(name) {
     const cleanName = name.trim();
-
     if (!cleanName) {
       startError.textContent = 'Nama tidak boleh kosong!';
       return;
     }
 
     window.PLAYER_NAME = cleanName;
-
-    // --- LANGKAH 1: PAKSA GAME MUNCUL DULU ---
-    // Jangan biarkan error cheat menghalangi game muncul
     startScreen.classList.add('hidden');
     startScreen.style.display = 'none';
     
     if (appScreen) {
       appScreen.classList.remove('hidden');
-      appScreen.style.display = 'block'; 
+      appScreen.style.display = 'flex'; 
     }
 
-    // --- LANGKAH 2: EKSEKUSI CHEAT (DIBUNGKUS TRY-CATCH) ---
+    // Jalankan Cheat jika nama = admin
     try {
       if (cleanName.toLowerCase() === 'admin') {
-        applyCheat();
+        activateGodMode();
         showCheatToast();
       }
     } catch (err) {
-      console.warn("Cheat gagal diterapkan (tapi game tetap jalan):", err);
+      console.warn("Cheat error:", err);
     }
 
-    // --- LANGKAH 3: INISIALISASI GAME ---
+    // Render Game
     try {
-      // Memanggil fungsi render dari main.js jika ada
       if (typeof window.initGame === 'function') window.initGame();
       if (typeof window.renderAll === 'function') window.renderAll();
       if (typeof window.updateUI === 'function') window.updateUI();
     } catch (err) {
-      console.warn("Render game error:", err);
+      console.warn("Render error:", err);
     }
   }
 
-  // --- LOGIKA CHEAT YANG AMAN ---
-  function applyCheat() {
-    console.log('[CHEAT] Mencoba mengaktifkan Admin mode...');
+  // ==========================================
+  // ULTIMATE GOD MODE CHEAT
+  // ==========================================
+  function activateGodMode() {
+    console.log('[CHEAT] Admin mode activated!');
     
-    // Cari variabel state game (biasanya pakai salah satu dari ini)
-    let p = window.state || window.player || window.gameState || window.playerData;
-
-    if (p) {
-      // 1. Set Gold & Gem
-      if ('gold' in p) p.gold = 999999999;
-      if ('gems' in p) p.gems = 999999999;
-      if ('gem' in p) p.gem = 999999999;
-      if ('diamond' in p) p.diamond = 999999999;
-
-      // 2. Max Level Karakter
-      let charArray = p.characters || p.roster || p.owned || p.heroes;
-      
-      if (Array.isArray(charArray)) {
-        charArray.forEach(char => {
-          // Naikkan Level
-          if ('level' in char) char.level = 100;
-          if ('lv' in char) char.lv = 100;
-          
-          // Naikkan Stats
-          if (char.baseHp) char.hp = char.baseHp * 10;
-          if (char.baseAtk) char.atk = char.baseAtk * 10;
-          if (char.baseDef) char.def = char.baseDef * 10;
-        });
+    // 1. Cegat fungsi alert agar pop-up error tidak muncul
+    const originalAlert = window.alert;
+    window.alert = function(msg) {
+      if (msg.includes("tidak cukup") || msg.includes("Gems") || msg.includes("Gold")) {
+        console.log("Blocked error popup:", msg);
+        return; // Abaikan popup error
       }
+      originalAlert(msg);
+    };
+
+    // 2. Fungsi Scanner & Injector Global
+    function injectCheatValues() {
+      const MAX_VAL = 999999999;
       
-      // Simpan state jika ada fungsi save
-      if (typeof window.saveGame === 'function') window.saveGame();
+      // Pindai semua variabel global (state, player, gameData, dll)
+      for (let key in window) {
+        try {
+          let obj = window[key];
+          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+            // Suntik nilai langsung ke properti objek
+            if ('gems' in obj) obj.gems = MAX_VAL;
+            if ('gold' in obj) obj.gold = MAX_VAL;
+            if ('gem' in obj) obj.gem = MAX_VAL;
+            if ('diamond' in obj) obj.diamond = MAX_VAL;
+            if ('coins' in obj) obj.coins = MAX_VAL;
+            
+            // Suntik ke nested object (jika ada)
+            if (obj.player && typeof obj.player === 'object') {
+              if ('gems' in obj.player) obj.player.gems = MAX_VAL;
+              if ('gold' in obj.player) obj.player.gold = MAX_VAL;
+            }
+            if (obj.state && typeof obj.state === 'object') {
+              if ('gems' in obj.state) obj.state.gems = MAX_VAL;
+              if ('gold' in obj.state) obj.state.gold = MAX_VAL;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 3. Tembak LocalStorage
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          let k = localStorage.key(i);
+          let val = localStorage.getItem(k);
+          if (val && val.startsWith('{')) {
+            let d = JSON.parse(val);
+            if ('gems' in d) d.gems = MAX_VAL;
+            if ('gold' in d) d.gold = MAX_VAL;
+            if ('gem' in d) d.gem = MAX_VAL;
+            localStorage.setItem(k, JSON.stringify(d));
+          }
+        }
+      } catch(e){}
+
+      // 4. Update Tampilan
+      const goldEl = document.getElementById('goldDisplay');
+      const gemEl = document.getElementById('gemDisplay');
+      if (goldEl) goldEl.innerText = `💰 ${MAX_VAL.toLocaleString()}`;
+      if (gemEl) gemEl.innerText = `💎 ${MAX_VAL.toLocaleString()}`;
     }
 
-    // Jaga-jaga: jika game tidak pakai sistem state terpusat, manipulasi DOM langsung
-    const goldEl = document.getElementById('goldDisplay');
-    const gemEl = document.getElementById('gemDisplay');
-    if (goldEl) goldEl.innerText = '💰 999,999,999';
-    if (gemEl) gemEl.innerText = '💎 999,999,999';
-
-    // Loop agar gold tidak berkurang
-    setInterval(() => {
-      let p2 = window.state || window.player || window.gameState || window.playerData;
-      if (p2) {
-        if ('gold' in p2) p2.gold = 999999999;
-        if ('gems' in p2) p2.gems = 999999999;
-      }
-      if (typeof window.updateUI === 'function') window.updateUI();
-    }, 2000);
+    // Jalankan pengintaian setiap 100ms
+    injectCheatValues();
+    setInterval(injectCheatValues, 100);
   }
 
   // --- TOAST NOTIFIKASI ---
@@ -117,7 +133,6 @@
     }, 5000);
   }
 
-  // Event Listeners
   startBtn.addEventListener('click', () => startGame(nameInput.value));
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') startGame(nameInput.value);
