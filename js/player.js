@@ -28,6 +28,8 @@ const Player = {
       this.data.roster.forEach(c => { 
         if (!c.evo) c.evo = 1; 
         if (!c.equipment) c.equipment = { weapon: null, armor: null, accessory: null };
+        if (!c.skillLevels) c.skillLevels = {};
+        if (!Number.isFinite(c.passiveLevel)) c.passiveLevel = 1;
       });
     }
 
@@ -93,7 +95,7 @@ const Player = {
   addCharacter(charId) {
     const inst = { 
       uid: this.data.uidCounter++, charId, level: 1, exp: 0, evo: 1,
-      equipment: { weapon: null, armor: null, accessory: null }
+      equipment: { weapon: null, armor: null, accessory: null }, skillLevels: {}, passiveLevel: 1
     };
     this.data.roster.push(inst);
     if (this.data.team.length < 4) this.data.team.push(inst.uid);
@@ -101,6 +103,47 @@ const Player = {
   },
 
   getInstance(uid) { return this.data.roster.find(r => r.uid === uid) || null; },
+
+  getSkillUpgradeCost(inst, skillId) {
+    if (!inst) return Infinity;
+    const current = (inst.skillLevels && inst.skillLevels[skillId]) || 1;
+    return Math.floor(100 * Math.max(1, inst.level || 1) * current);
+  },
+
+  getPassiveUpgradeCost(inst) {
+    if (!inst) return Infinity;
+    const current = inst.passiveLevel || 1;
+    return Math.floor(150 * Math.max(1, inst.level || 1) * current);
+  },
+
+  upgradeSkill(uid, skillId) {
+    const inst = this.getInstance(uid);
+    if (!inst) return { ok: false, message: 'Karakter tidak ditemukan.' };
+    const character = CHARACTERS[inst.charId];
+    if (!character || !character.skills.includes(skillId) || !SKILLS[skillId]) return { ok: false, message: 'Skill tidak valid.' };
+    if (!inst.skillLevels) inst.skillLevels = {};
+    const current = inst.skillLevels[skillId] || 1;
+    if (current >= 10) return { ok: false, message: 'Skill sudah mencapai level maksimal.' };
+    const cost = this.getSkillUpgradeCost(inst, skillId);
+    if ((this.data.gold || 0) < cost) return { ok: false, message: `Gold tidak cukup. Butuh ${cost.toLocaleString()} Gold.` };
+    this.data.gold -= cost;
+    inst.skillLevels[skillId] = current + 1;
+    this.save();
+    return { ok: true, message: `${SKILLS[skillId].name} naik ke Lv ${current + 1}!` };
+  },
+
+  upgradePassive(uid) {
+    const inst = this.getInstance(uid);
+    if (!inst) return { ok: false, message: 'Karakter tidak ditemukan.' };
+    inst.passiveLevel = inst.passiveLevel || 1;
+    if (inst.passiveLevel >= 10) return { ok: false, message: 'Pasif sudah mencapai level maksimal.' };
+    const cost = this.getPassiveUpgradeCost(inst);
+    if ((this.data.gold || 0) < cost) return { ok: false, message: `Gold tidak cukup. Butuh ${cost.toLocaleString()} Gold.` };
+    this.data.gold -= cost;
+    inst.passiveLevel++;
+    this.save();
+    return { ok: true, message: `Pasif naik ke Lv ${inst.passiveLevel}!` };
+  },
   getTeamUnits() { return this.data.team.map(uid => this.getInstance(uid)).filter(Boolean); },
 
   addToTeam(uid) {

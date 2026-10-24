@@ -343,56 +343,85 @@ window.openSkillModal = function(uid) {
     if (!inst) return;
     const c = CHARACTERS[inst.charId];
     if (!c) return;
+    if (!inst.skillLevels) inst.skillLevels = {};
+    if (!inst.passiveLevel) inst.passiveLevel = 1;
     const modal = document.getElementById('skillModal');
-    
+    const passiveNames = {
+      shadow: ['Death Preparation', 'Setiap debuff tambahan memperkuat finisher tim. Upgrade pasif meningkatkan bonus finisher.'],
+      celestia: ['Perfect Timing', 'Buff yang diberikan sebelum DPS menyerang mendapatkan durasi tambahan. Upgrade pasif memperkuat buff.'],
+      raizen: ['Overload', 'Stack Resonance meningkatkan damage finisher berikutnya. Upgrade pasif memperkuat bonus finisher.']
+    };
+    const passive = passiveNames[inst.charId] || ['Insting Tempur', 'Meningkatkan efektivitas tempur karakter. Setiap level pasif menambah bonus damage karakter.'];
+    const passiveLv = inst.passiveLevel;
+    const passiveCost = Player.getPassiveUpgradeCost(inst);
+    const passiveMax = passiveLv >= 10;
     let html = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <h3 style="margin:0;">📖 Daftar Skill: ${c.name}</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
+        <h3 style="margin:0;">📖 Skill & Upgrade: ${c.name}</h3>
         <button class="danger small-btn" onclick="document.getElementById('skillModal').classList.add('hidden')">Tutup</button>
       </div>
-      <div style="max-height: 60vh; overflow-y: auto; padding-right: 5px; text-align: left;">
+      <div class="card" style="margin-bottom:12px; padding:10px;">
+        <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <b>Lv Karakter ${inst.level}</b><b style="color:var(--accent-2)">💰 ${(Player.data.gold || 0).toLocaleString()} Gold</b>
+        </div>
+        <small class="muted">Upgrade memakai Gold. Biaya meningkat mengikuti level karakter dan level skill. Maksimum skill/pasif Lv 10.</small>
+      </div>
+      <div style="max-height:60vh; overflow-y:auto; padding-right:5px; text-align:left;">
     `;
-
     c.skills.forEach(skillId => {
       const skill = SKILLS[skillId];
       if (!skill) return;
-
+      const lv = inst.skillLevels[skillId] || 1;
+      const cost = Player.getSkillUpgradeCost(inst, skillId);
+      const maxed = lv >= 10;
       let typeColor = '#fff';
-      if (skill.type === 'damage') typeColor = '#ff4d5e'; 
-      if (skill.type === 'heal') typeColor = '#3ddc84'; 
-      if (skill.type === 'buff') typeColor = '#4aa8ff'; 
-      if (skill.type === 'debuff') typeColor = '#a06bff'; 
-      if (skill.type === 'support') typeColor = '#ffb547'; 
-
-      const isBasic = ['strike', 'nox_strike', 'support_inspire'].includes(skillId);
-      const cdStr = isBasic ? 'Tanpa Cooldown' : 'CD: 2 Giliran';
-      
-      let powerInfo = '';
-      if (skill.power) {
-        powerInfo = `<div style="font-size: 0.75rem; color: var(--accent-2); margin-top: 4px;">⚡ Damage Multiplier: ${skill.power}x</div>`;
-      }
-      if (skill.aoe) {
-        powerInfo += `<div style="font-size: 0.75rem; color: var(--accent-2);">🎯 Area of Effect (AoE)</div>`;
-      }
-
+      if (skill.type === 'damage' || skill.type === 'multiHit') typeColor = '#ff4d5e';
+      if (skill.type === 'heal') typeColor = '#3ddc84';
+      if (skill.type === 'buff' || skill.type === 'teamBuff' || skill.type === 'support') typeColor = '#4aa8ff';
+      if (skill.type === 'debuff') typeColor = '#a06bff';
+      const scaledPower = skill.power ? (skill.power * (1 + (lv - 1) * 0.08)).toFixed(2) : null;
+      const powerInfo = scaledPower ? `<div style="font-size:.75rem;color:var(--accent-2);margin-top:4px;">⚡ Power saat ini: ${scaledPower}x</div>` : '';
       html += `
-        <div class="skill-item" style="border-left: 4px solid ${typeColor};">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-            <b style="color: ${typeColor}; font-size: 1rem;">${skill.name}</b>
-            <span style="font-size: 0.75rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${cdStr}</span>
+        <div class="skill-item" style="border-left:4px solid ${typeColor}; margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+            <b style="color:${typeColor};font-size:1rem;">${skill.name}</b>
+            <span style="font-size:.75rem;background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;white-space:nowrap;">Lv ${lv}/10</span>
           </div>
-          <div style="font-size: 0.85rem; color: var(--text); line-height: 1.4;">${skill.desc}</div>
+          <div style="font-size:.85rem;line-height:1.4;">${skill.desc}</div>
           ${powerInfo}
-        </div>
-      `;
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <small class="muted">${maxed ? 'Level maksimal' : `Upgrade berikutnya: 💰 ${cost.toLocaleString()} Gold`}</small>
+            <button class="primary small-btn" ${maxed || (Player.data.gold || 0) < cost ? 'disabled' : ''} onclick="upgradeCharacterSkill(${uid}, '${skillId}')">${maxed ? 'MAX' : '⬆️ Upgrade'}</button>
+          </div>
+        </div>`;
     });
-
-    html += `</div>`;
+    html += `
+      <div class="skill-item" style="border-left:4px solid #ffb547;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <b style="color:#ffb547;">✨ Pasif — ${passive[0]}</b><b>Lv ${passiveLv}/10</b>
+        </div>
+        <div style="font-size:.85rem;line-height:1.4;margin-top:6px;">${passive[1]}</div>
+        <div style="font-size:.78rem;color:var(--accent-2);margin-top:6px;">Bonus pasif umum: +${(passiveLv - 1) * 2}% efektivitas tempur</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <small class="muted">${passiveMax ? 'Level maksimal' : `Upgrade berikutnya: 💰 ${passiveCost.toLocaleString()} Gold`}</small>
+          <button class="primary small-btn" ${passiveMax || (Player.data.gold || 0) < passiveCost ? 'disabled' : ''} onclick="upgradeCharacterPassive(${uid})">${passiveMax ? 'MAX' : '⬆️ Upgrade Pasif'}</button>
+        </div>
+      </div>
+      </div>`;
     modal.innerHTML = html;
     modal.classList.remove('hidden');
-  } catch (e) {
-    console.error("Error open skill modal:", e);
-  }
+  } catch (e) { console.error('Error open skill modal:', e); }
+};
+
+window.upgradeCharacterSkill = function(uid, skillId) {
+  const result = Player.upgradeSkill(uid, skillId);
+  if (!result.ok) alert(result.message);
+  else { renderAll(); openSkillModal(uid); }
+};
+window.upgradeCharacterPassive = function(uid) {
+  const result = Player.upgradePassive(uid);
+  if (!result.ok) alert(result.message);
+  else { renderAll(); openSkillModal(uid); }
 };
 
 // ==========================================

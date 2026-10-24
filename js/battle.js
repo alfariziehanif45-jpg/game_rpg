@@ -34,7 +34,7 @@ const Battle = {
     this.allies = Player.getTeamUnits().map(u => {
       const stats = Player.computeStats(u);
       return {
-        uid: u.uid, charId: u.charId, isEnemy: false,
+        uid: u.uid, charId: u.charId, isEnemy: false, skillLevels: { ...(u.skillLevels || {}) }, passiveLevel: u.passiveLevel || 1,
         name: CHARACTERS[u.charId].name,
         emoji: CHARACTERS[u.charId].emoji || '👤',
         role: CHARACTERS[u.charId].role,
@@ -198,8 +198,18 @@ const Battle = {
     this.waitingForInput = false;
     document.getElementById('actionBar').innerHTML = '';
 
-    const skill = SKILLS[skillId];
-    if (!skill) return;
+    const baseSkill = SKILLS[skillId];
+    if (!baseSkill) return;
+    const skillLevel = actor.skillLevels && actor.skillLevels[skillId] || 1;
+    const passiveLevel = actor.passiveLevel || 1;
+    const skill = { ...baseSkill };
+    if (skill.power) skill.power *= 1 + (skillLevel - 1) * 0.08;
+    if (skill.amount) skill.amount *= 1 + (skillLevel - 1) * 0.05;
+    if (skill.turns) skill.turns += Math.floor((skillLevel - 1) / 3);
+    if (skill.hits) skill.hits += Math.floor((skillLevel - 1) / 5);
+    // Upgrade pasif menambah efektivitas karakter secara bertahap.
+    if (passiveLevel > 1 && ['damage', 'multiHit'].includes(skill.type)) skill.power *= 1 + (passiveLevel - 1) * 0.02;
+    if (passiveLevel > 1 && ['buff', 'teamBuff', 'support', 'debuff'].includes(skill.type) && skill.amount) skill.amount *= 1 + (passiveLevel - 1) * 0.02;
 
     // --- TERAPKAN RELIC: PENGURANGAN CD ---
     let cdReduction = 0;
@@ -237,8 +247,14 @@ const Battle = {
     if (skill.type === 'teamBuff') {
       aliveAllies.forEach(a => {
         if (!a.buffs) a.buffs = {};
-        if (skill.buff === 'atk') a.buffs.teamAtk = Math.max(a.buffs.teamAtk || 0, skill.turns + (actor.charId === 'celestia' ? 1 : 0));
-        if (skill.buff === 'critDmg') a.buffs.teamCritDmg = Math.max(a.buffs.teamCritDmg || 0, skill.turns + (actor.charId === 'celestia' ? 1 : 0));
+        if (skill.buff === 'atk') {
+          a.buffs.teamAtk = Math.max(a.buffs.teamAtk || 0, skill.turns + (actor.charId === 'celestia' ? 1 + Math.floor((passiveLevel - 1) / 3) : 0));
+          a.buffs.teamAtkAmount = Math.max(a.buffs.teamAtkAmount || 0, skill.amount || 0.50);
+        }
+        if (skill.buff === 'critDmg') {
+          a.buffs.teamCritDmg = Math.max(a.buffs.teamCritDmg || 0, skill.turns + (actor.charId === 'celestia' ? 1 + Math.floor((passiveLevel - 1) / 3) : 0));
+          a.buffs.teamCritDmgAmount = Math.max(a.buffs.teamCritDmgAmount || 0, skill.amount || 0.60);
+        }
       });
       this.log(`✨ ${actor.name} memperkuat seluruh tim dengan ${skill.name}!`);
     }
@@ -249,14 +265,14 @@ const Battle = {
         if (skill.debuff === 'defDown') target.defDown = skill.amount;
         if (actor.charId === 'shadow') {
           const count = Object.keys(target.debuffs).length;
-          this.finisherBonus = Math.min(0.25, (this.finisherBonus || 0) + 0.05);
+          this.finisherBonus = Math.min(0.50, (this.finisherBonus || 0) + 0.05 + Math.max(0, passiveLevel - 1) * 0.01);
           this.log(`☠️ ${target.name} terkena ${skill.name}. Bonus finisher tim +5% per debuff (maks. +25%).`);
         } else this.log(`☠️ ${target.name} terkena ${skill.name} selama ${skill.turns} turn!`);
       }
     }
     else if (skill.type === 'resonance') {
       actor.resonance = Math.min(5, (actor.resonance || 0) + 1);
-      this.finisherBonus = Math.min(0.60, (this.finisherBonus || 0) + 0.12);
+      this.finisherBonus = Math.min(0.80, (this.finisherBonus || 0) + 0.12 + Math.max(0, passiveLevel - 1) * 0.01);
       this.log(`⚡ Resonance ${actor.resonance}/5! Finisher berikutnya mendapat bonus damage +12% per stack.`);
     }
     else if (skill.type === 'multiHit') {
@@ -272,7 +288,7 @@ const Battle = {
         }
         if (actor.charId === 'raizen') {
           actor.resonance = Math.min(5, (actor.resonance || 0) + skill.hits);
-          this.finisherBonus = Math.min(0.60, (this.finisherBonus || 0) + 0.12 * Math.min(skill.hits, 5));
+          this.finisherBonus = Math.min(0.80, (this.finisherBonus || 0) + (0.12 + Math.max(0, passiveLevel - 1) * 0.01) * Math.min(skill.hits, 5));
           this.log(`🔗 Resonance ${actor.resonance}/5 — Overload meningkatkan finisher berikutnya!`);
         }
         if (target.hp === 0) this.log(`💀 ${target.name} tumbang!`);
@@ -297,7 +313,7 @@ const Battle = {
         const mitigation = targetDef / (targetDef + 100);
         let dmg = Math.max(1, Math.floor((actorAtk * skill.power) * (1 - mitigation)));
         if (targetUnit.debuffs && targetUnit.debuffs.damageTaken) dmg = Math.floor(dmg * (1 + targetUnit.debuffs.damageTaken.amount));
-        if (actor.buffs && actor.buffs.teamAtk > 0) dmg = Math.floor(dmg * 1.5);
+        if (actor.buffs && actor.buffs.teamAtk > 0) dmg = Math.floor(dmg * (1 + (actor.buffs.teamAtkAmount || 0.50)));
         if (skill.power >= 4 || ['nox_execution', 'nox_true_blade'].includes(skillId)) {
           dmg = Math.floor(dmg * (1 + (this.finisherBonus || 0)));
           if (this.finisherBonus) { this.log(`💥 Finisher bonus +${Math.round(this.finisherBonus * 100)}%!`); this.finisherBonus = 0; }
@@ -311,7 +327,7 @@ const Battle = {
         let critDmgMult = 1.5 + ((actor.critDmg || 0) / 100); 
         
         if (actor.buffs && actor.buffs.supportCrit > 0) { critChance += 60; critDmgMult += 0.6; }
-        if (actor.buffs && actor.buffs.teamCritDmg > 0) critDmgMult += 0.6;
+        if (actor.buffs && actor.buffs.teamCritDmg > 0) critDmgMult += (actor.buffs.teamCritDmgAmount || 0.60);
 
         let isCrit = false;
         if (Math.random() * 100 < critChance) {

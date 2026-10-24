@@ -67,13 +67,14 @@ const SKILLS = {
   quake: { name: 'Guncangan Bumi', mp: 28, type: 'damage', power: 1.3, target: 'enemy', aoe: true, element: 'earth', desc: 'Mengguncang bumi.' },
   holy_shield: { name: 'Perisai Suci', mp: 16, type: 'buff', target: 'ally', stat: 'def', amount: 0.6, turns: 3, element: 'light', desc: '+60% DEF sekutu (3 turn).' },
   
-  nox_strike: { name: 'Tebasan Cepat', mp: 0, type: 'damage', power: 1.5, target: 'enemy', aoe: false, element: 'dark', desc: 'Serangan dasar dual blade.' },
-  nox_x_slash: { name: 'X-Slash', mp: 10, type: 'damage', power: 2.5, target: 'enemy', aoe: false, element: 'dark', desc: 'Tebasan menyilang mematikan.' },
-  nox_cross_blade: { name: 'Salib Pedang', mp: 15, type: 'damage', power: 3.5, target: 'enemy', aoe: false, element: 'dark', desc: 'Serangan beruntun berkecepatan tinggi.' },
-  nox_whirlwind: { name: 'Tornado Baja', mp: 20, type: 'damage', power: 2.0, target: 'enemy', aoe: true, element: 'wind', desc: 'Berputar menebas semua musuh.' },
-  nox_phantom_strike: { name: 'Tebasan Phantom', mp: 25, type: 'damage', power: 4.0, target: 'enemy', aoe: false, element: 'dark', desc: 'Tebasan tak terlihat dari bayangan.' },
-  nox_execution: { name: 'Eksekusi Mutlak', mp: 30, type: 'damage', power: 5.5, target: 'enemy', aoe: false, element: 'dark', desc: 'Tebasan pemenggal kepala.' },
-  nox_true_blade: { name: 'True Blade: Oblivion', mp: 40, type: 'damage', power: 8.0, target: 'enemy', aoe: false, element: 'dark', desc: 'Kekuatan pedang sejati yang menghancurkan segalanya.' },
+  // NOX REVAMP: total 7 skill — 4 single-target dan 3 AOE.
+  nox_strike: { name: 'Umbral Quickdraw', mp: 0, type: 'damage', power: 1.6, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — tebasan dasar cepat dengan pedang bayangan.' },
+  nox_x_slash: { name: 'Phantom X-Slash', mp: 12, type: 'damage', power: 2.8, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — dua tebasan silang yang menghantam satu musuh.' },
+  nox_cross_blade: { name: 'Rift Piercer', mp: 18, type: 'damage', power: 3.8, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — tusukan terkonsentrasi untuk menembus pertahanan satu target.' },
+  nox_whirlwind: { name: 'Eclipse Tempest', mp: 24, type: 'damage', power: 2.1, target: 'enemy', aoe: true, element: 'wind', desc: 'AOE — putaran pedang menyapu seluruh musuh.' },
+  nox_phantom_strike: { name: 'Nightfall Execution', mp: 28, type: 'damage', power: 4.6, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — serangan bayangan berdaya tinggi ke satu musuh.' },
+  nox_execution: { name: 'Abyssal Rupture', mp: 34, type: 'damage', power: 3.6, target: 'enemy', aoe: true, element: 'dark', desc: 'AOE FINISHER — retakan energi abyss menghantam semua musuh; dapat memicu bonus finisher.' },
+  nox_true_blade: { name: 'True Blade: Oblivion', mp: 45, type: 'damage', power: 5.2, target: 'enemy', aoe: true, element: 'dark', desc: 'AOE ULTIMATE — tebasan pedang sejati menghancurkan semua musuh dan mengonsumsi bonus finisher.' },
 
   // SKILL SUPPORT (Hanya 1, tidak bisa nyerang)
   support_inspire: { name: 'Inspirasi Tempur', mp: 0, type: 'support', target: 'ally', aoe: true, element: 'light', desc: 'Meningkatkan ATK, Crit, & Crit Dmg DPS sebesar 60% (3 Ronde).' },
