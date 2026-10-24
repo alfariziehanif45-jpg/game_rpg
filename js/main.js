@@ -545,7 +545,7 @@ window.openEquipModal = function(uid) {
 function renderStages() {
   const list = document.getElementById('stageList');
   if (!list) return;
-  list.innerHTML = '';
+  const cards = [];
   const maxShow = Player.data.stageProgress;
   
   for (let i = 1; i <= maxShow; i++) {
@@ -581,7 +581,7 @@ function renderStages() {
       cardStyle = 'border: 1px solid var(--accent-2);';
     }
     
-    list.innerHTML += `
+    cards.push(`
       <div class="stage-card ${isCompleted ? '' : 'locked'}" style="${cardStyle}">
         <h4 style="display:flex; justify-content:space-between;">
           <span>${title}</span>
@@ -595,8 +595,9 @@ function renderStages() {
         </div>
         ${actionHtml}
       </div>
-    `;
+    `);
   }
+  list.innerHTML = cards.join('');
 }
 
 window.skipStage = function(stageId) {

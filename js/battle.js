@@ -710,7 +710,12 @@ const Battle = {
 
   log(msg) {
     const logEl = document.getElementById('battleLog');
-    logEl.innerHTML += `<div>${msg}</div>`;
+    if (!logEl) return;
+    const line = document.createElement('div');
+    line.textContent = String(msg);
+    logEl.appendChild(line);
+    // Keep the latest 100 entries so long battles stay smooth on phones.
+    while (logEl.childElementCount > 100) logEl.firstElementChild.remove();
     logEl.scrollTop = logEl.scrollHeight;
   },
 

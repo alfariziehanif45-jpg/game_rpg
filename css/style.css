@@ -504,3 +504,104 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .skill-item:last-child {
   margin-bottom: 0;
 }
+
+/* ==========================================
+   MOBILE PERFORMANCE & TOUCH OPTIMIZATION
+   ========================================== */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: auto;
+  overscroll-behavior-y: contain;
+}
+body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+}
+button, select, input {
+  font: inherit;
+  touch-action: manipulation;
+}
+button, .filter-btn, .eq-item-card, .qte-circle {
+  -webkit-user-select: none;
+  user-select: none;
+}
+#battleOverlay {
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+.battle-log {
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+}
+
+@media (max-width: 600px) {
+  #app {
+    padding: max(8px, env(safe-area-inset-top)) 8px max(14px, env(safe-area-inset-bottom));
+    width: 100%;
+  }
+  header { border-radius: 10px; margin-bottom: 8px; }
+  .logo { font-size: 1.05rem; }
+  .resources { gap: 8px; font-size: .9rem; }
+  nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  nav button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 4px;
+    font-size: .78rem;
+    border-radius: 8px;
+    transition: none;
+  }
+  h2 { font-size: 1.2rem; }
+  .card, .filters-container { padding: 12px; }
+  .char-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .char-card { padding: 9px; transition: none; }
+  .char-card:hover, .eq-item-card:hover, .stage-card button:hover {
+    transform: none;
+    filter: none;
+  }
+  .gacha-card { width: calc(50% - 8px); min-width: 0; animation: none; }
+  .banner { padding: 14px 10px; }
+  .banner-title { font-size: 1rem; letter-spacing: 1px; }
+  button.primary, button.danger { min-height: 44px; padding: 11px 14px; }
+  .filter-btn { min-height: 38px; padding: 8px 10px; }
+  .filter-select { min-height: 42px; max-width: 100%; }
+  .battle-overlay { padding-left: 8px; padding-right: 8px; }
+  .unit-row { gap: 6px; }
+  .unit-card { min-width: 0; padding: 7px; }
+  .unit-emoji { font-size: 1.5rem; }
+  .unit-name { font-size: .75rem; overflow-wrap: anywhere; }
+  .skill-btn { padding: 10px; gap: 8px; }
+  .skill-icon { font-size: 1.35rem; margin-right: 4px; }
+  .skill-name { font-size: .88rem; }
+  .skill-desc { font-size: .7rem; }
+  .modal { min-width: 0; width: calc(100vw - 24px); max-width: 440px; max-height: 85dvh; overflow-y: auto; padding: 16px; }
+  .qte-container { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .qte-circle { width: 100px; height: 100px; box-shadow: 0 0 14px #ff4d5e; }
+  .qte-text { animation: none; text-shadow: none; }
+}
+
+/* Keep animations and expensive effects minimal on devices that request it. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Low-power mode: avoid constant particle and glow repainting on touch devices. */
+@media (hover: none) and (pointer: coarse) {
+  .particle-element { animation: none !important; }
+  .char-card:hover, .nox-card:hover, .eq-item-card:hover, .stage-card button:hover {
+    transform: none !important;
+    filter: none !important;
+  }
+  .boss-card { transform: none; box-shadow: 0 0 8px rgba(255,77,94,.18) !important; }
+  .rar-3, .rar-4, .rar-5 { box-shadow: none !important; }
+}

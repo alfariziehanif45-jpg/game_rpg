@@ -61,7 +61,6 @@
     }
 
     updateHeaderText();
-    setInterval(updateHeaderText, 1000);
   }
 
   function showCheatToast() {
