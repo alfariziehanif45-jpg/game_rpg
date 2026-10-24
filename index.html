@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPG Gacha — Idle Heroes</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo">⚔️ RPG GACHA</div>
+    <div class="resources">
+      <span id="goldDisplay">💰 0</span>
+      <span id="gemDisplay">💎 0</span>
+    </div>
+  </header>
+
+  <nav>
+    <button data-page="home" class="active">🏠 Beranda</button>
+    <button data-page="gacha">🎰 Gacha</button>
+    <button data-page="roster">📜 Karakter</button>
+    <button data-page="team">🛡️ Tim</button>
+    <button data-page="battle">⚔️ Bertarung</button>
+  </nav>
+
+  <main>
+    <!-- HOME -->
+    <section id="page-home" class="page active">
+      <h2>Selamat Datang, Petualang!</h2>
+      <p class="muted">Kumpulkan karakter lewat gacha, susun tim terbaik, dan grinding untuk menaklukkan semua stage.</p>
+      <div class="card">
+        <h3>📊 Statistik</h3>
+        <p>Total Gacha: <b id="statPulls">0</b></p>
+        <p>Karakter Dimiliki: <b id="statRoster">0</b></p>
+        <p>Stage Terbuka: <b id="statStage">1</b></p>
+        <p>Pity Counter: <b id="statPity">0</b> / 40</p>
+      </div>
+      <div class="card">
+        <h3>🎯 Cara Bermain</h3>
+        <ol class="muted">
+          <li>Buka tab <b>Gacha</b> untuk mendapatkan karakter baru.</li>
+          <li>Atur komposisi di tab <b>Tim</b> (maks 4 karakter).</li>
+          <li>Pilih stage di tab <b>Bertarung</b> lalu kalahkan musuh.</li>
+          <li>Dapatkan EXP & Gold → level up → buka stage berikutnya.</li>
+          <li>Gunakan tombol <b>Ulangi</b> setelah menang untuk grinding.</li>
+        </ol>
+      </div>
+      <button id="resetBtn" class="danger">🗑️ Reset Progres</button>
+    </section>
+
+    <!-- GACHA -->
+    <section id="page-gacha" class="page">
+      <h2>🎰 Gacha Summon</h2>
+      <div class="banner">
+        <div class="banner-title">✦ BANNER HERO LEGENDARIS ✦</div>
+        <p class="muted">5★ Rate: 3% · 4★ Rate: 15% · Pity 40x untuk 5★</p>
+        <div class="gacha-btns">
+          <button id="pull1Btn" class="primary">Summon 1x<br><small>💰 100 Gold</small></button>
+          <button id="pull10Btn" class="primary gold">Summon 10x<br><small>💎 450 Gems</small></button>
+        </div>
+        <p class="muted small">10x dijamin minimal 1 karakter 4★ atau lebih!</p>
+      </div>
+      <div id="gachaResult" class="hidden"></div>
+    </section>
+
+    <!-- ROSTER -->
+    <section id="page-roster" class="page">
+      <h2>📜 Koleksi Karakter</h2>
+      <div id="rosterGrid" class="char-grid"></div>
+    </section>
+
+    <!-- TEAM -->
+    <section id="page-team" class="page">
+      <h2>🛡️ Susun Tim <small class="muted">(maks 4)</small></h2>
+      <div id="teamSlots" class="char-grid team-slots"></div>
+      <h3>Karakter Tersedia</h3>
+      <div id="teamRoster" class="char-grid"></div>
+    </section>
+
+    <!-- BATTLE -->
+    <section id="page-battle" class="page">
+      <h2>⚔️ Pilih Stage</h2>
+      <div id="stageList" class="stage-list"></div>
+    </section>
+  </main>
+</div>
+
+<!-- BATTLE OVERLAY -->
+<div id="battleOverlay" class="battle-overlay hidden">
+  <div class="battle-top">
+    <div class="round-info">Round <span id="roundNum">1</span></div>
+    <button id="fleeBtn" class="danger small-btn">🏃 Kabur</button>
+  </div>
+  <div id="enemyRow" class="unit-row"></div>
+  <div id="battleLog" class="battle-log"></div>
+  <div id="allyRow" class="unit-row"></div>
+  <div id="actionBar" class="action-bar"></div>
+</div>
+
+<!-- BATTLE RESULT MODAL -->
+<div id="battleResult" class="modal hidden"></div>
+
+<script src="js/data.js"></script>
+<script src="js/player.js"></script>
+<script src="js/gacha.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
