@@ -60,10 +60,18 @@ const Battle = {
     
     if (isBoss || isMiniBoss) {
       const template = isBoss ? BOSSES.boss : BOSSES.miniboss;
-      const loopMultiplier = Math.pow(1.25, Math.floor(stageId / 10));
-      const hpScale = (1 + (stageId * 0.2)) * loopMultiplier;
-      const atkScale = (1 + (stageId * 0.25)) * loopMultiplier;
-      const defScale = (1 + (stageId * 0.1)) * loopMultiplier;
+      // Boss progression: early stages are forgiving; difficulty ramps after stage 70.
+      // Keep scaling gradual before stage 70, then increase it every 10 stages.
+      const lateBands = Math.max(0, Math.floor((stageId - 70) / 10));
+      const hpScale = stageId < 70
+        ? 0.35 + (stageId * 0.012)
+        : (1.19 + ((stageId - 70) * 0.012)) * Math.pow(1.12, lateBands);
+      const atkScale = stageId < 70
+        ? 0.45 + (stageId * 0.009)
+        : (1.08 + ((stageId - 70) * 0.009)) * Math.pow(1.10, lateBands);
+      const defScale = stageId < 70
+        ? 0.50 + (stageId * 0.0075)
+        : (1.025 + ((stageId - 70) * 0.0075)) * Math.pow(1.08, lateBands);
       
       const boss = {
         id: `boss_${Date.now()}`, name: template.name, emoji: template.emoji, isEnemy: true, isBoss: true, phase: 1,
@@ -340,16 +348,18 @@ const Battle = {
     const hpPercent = boss.hp / boss.maxHp;
     const isMainBoss = boss.name === 'System Administrator';
 
-    if (boss.phase === 1 && hpPercent <= (isMainBoss ? 0.7 : 0.5)) {
+    if (boss.phase === 1 && hpPercent <= (isMainBoss ? (this.stageId >= 70 ? 0.7 : 0.5) : 0.5)) {
       boss.phase = 2;
-      boss.atk = Math.floor(boss.atk * 2.0);
-      boss.def = Math.floor(boss.def * 1.3);
-      this.log(`<span style="color:var(--accent-2); font-weight:bold; font-size:1.1rem;">⚠️ BOSS BERADAPTASI! Memasuki Fase 2! (ATK Meningkat Drastis)</span>`);
+      // Before stage 70, phase changes are a small challenge rather than a sudden spike.
+      const phaseAtkMultiplier = this.stageId >= 70 ? 1.6 : 1.25;
+      boss.atk = Math.floor(boss.atk * phaseAtkMultiplier);
+      boss.def = Math.floor(boss.def * (this.stageId >= 70 ? 1.2 : 1.1));
+      this.log(`<span style="color:var(--accent-2); font-weight:bold; font-size:1.1rem;">⚠️ BOSS BERADAPTASI! Memasuki Fase 2! (ATK meningkat)</span>`);
       
-      if (isMainBoss) {
+      if (isMainBoss && this.stageId >= 70) {
         this.rules.noHeal = true;
         this.log(`<span style="color:var(--danger)">🚫 SISTEM DIMANIPULASI: Semua penyembuhan (Heal) diblokir!</span>`);
-      } else {
+      } else if (!isMainBoss) {
         const poolKeys = Object.keys(MONSTERS);
         const t = MONSTERS[poolKeys[Math.floor(Math.random() * poolKeys.length)]];
         const minion = {
@@ -363,10 +373,10 @@ const Battle = {
       }
     }
 
-    if (isMainBoss && boss.phase === 2 && hpPercent <= 0.4) {
+    if (isMainBoss && this.stageId >= 70 && boss.phase === 2 && hpPercent <= 0.4) {
       boss.phase = 3;
-      boss.atk = Math.floor(boss.atk * 2.5); 
-      boss.spd = Math.floor(boss.spd * 1.5);
+      boss.atk = Math.floor(boss.atk * 1.8); 
+      boss.spd = Math.floor(boss.spd * 1.25);
       this.log(`<span style="color:var(--danger); font-weight:bold; font-size:1.1rem;">🔥 SISTEM KRITIS! BOSS MEMASUKI FASE 3! (MODE AMUK AKTIF)</span>`);
       
       this.rules.noPotion = true;
