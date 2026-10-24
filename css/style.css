@@ -21,8 +21,8 @@ html, body {
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: radial-gradient(circle at top, #1a1d29, #0a0c12 60%);
   color: var(--text);
-  overflow-x: hidden; /* Cegah geser samping */
-  overflow-y: auto;   /* BISA DIGESER ATAS/BAWAH */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #app { 
@@ -143,27 +143,26 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .filter-select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; outline: none; cursor: pointer; }
 
 /* ==========================================
-   BATTLE OVERLAY (FULL SCREEN & TERKUNCI)
+   BATTLE OVERLAY (BISA DI-SCROLL ATAS/BAWAH)
    ========================================== */
 .battle-overlay { 
   position: fixed; 
   inset: 0; 
   background: #0f1117; 
   z-index: 9999; 
-  display: flex; 
-  flex-direction: column; 
-  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) 12px; 
+  padding: max(12px, env(safe-area-inset-top)) 12px max(20px, env(safe-area-inset-bottom)) 12px; 
   max-width: 900px; 
   margin: 0 auto; 
-  overflow: hidden; /* Kunci scroll utama */
+  overflow-y: auto; /* KUNCI PERUBAHAN: Bisa di-scroll */
+  -webkit-overflow-scrolling: touch;
 }
 .battle-overlay.hidden { display: none; }
 
-.battle-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-shrink: 0; }
+.battle-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .round-info { font-weight: 700; color: var(--accent-2); }
 .small-btn { padding: 8px 14px !important; font-size: 0.8rem !important; }
 
-.unit-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 6px 0; flex-shrink: 0; }
+.unit-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
 .unit-card { flex: 1 1 180px; max-width: 220px; display: flex; gap: 8px; align-items: center; background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 8px; transition: all 0.2s; cursor: default; }
 .unit-card.current { border-color: var(--accent-2); box-shadow: 0 0 16px #ffb54766; transform: translateY(-3px); }
 .unit-card.dead { opacity: 0.3; filter: grayscale(1); }
@@ -179,24 +178,32 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .hp-fill { height: 100%; background: linear-gradient(90deg, #3ddc84, #23a35f); transition: width 0.3s; }
 .bar-text { position: absolute; inset: 0; font-size: 0.6rem; text-align: center; line-height: 12px; color: #fff; text-shadow: 0 1px 2px #000; font-weight: 700; }
 
-/* Area Log bisa di scroll jika kepanjangan */
+/* Log Pertarungan */
 .battle-log { 
-  flex: 1; 
-  min-height: 80px; 
-  overflow-y: auto; /* Scroll khusus log */
+  min-height: 100px; 
+  max-height: 200px; 
+  overflow-y: auto; /* Scroll log internal */
   background: #0a0c12; 
   border: 1px solid var(--border); 
   border-radius: 10px; 
   padding: 10px; 
-  margin: 8px 0; 
+  margin: 12px 0; 
   font-size: 0.8rem; 
   line-height: 1.7; 
 }
 .eff-good { color: var(--success); font-weight: 700; }
 .eff-bad { color: var(--muted); }
 
-/* Action Bar */
-.action-bar { min-height: 140px; background: var(--panel); padding: 16px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); flex-shrink: 0; }
+/* Tombol Action */
+.action-bar { 
+  min-height: 140px; 
+  background: var(--panel); 
+  padding: 16px; 
+  border-radius: 14px; 
+  border: 1px solid var(--border); 
+  margin-top: 16px; 
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5); 
+}
 .actor-label { text-align: center; margin-bottom: 12px; color: var(--text); font-size: 1rem; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 8px; }
 .actor-label b { color: var(--accent-2); }
 .action-buttons { display: flex; flex-direction: column; gap: 8px; }
