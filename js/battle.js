@@ -64,9 +64,12 @@ const Battle = {
       // Boss progression: early stages are forgiving; difficulty ramps after stage 70.
       // Keep scaling gradual before stage 70, then increase it every 10 stages.
       const lateBands = Math.max(0, Math.floor((stageId - 70) / 10));
-      const hpScale = stageId < 70
-        ? 0.35 + (stageId * 0.012)
-        : (1.19 + ((stageId - 70) * 0.012)) * Math.pow(1.12, lateBands);
+      const partyLevels = (Player.data.roster || []).filter(r => Player.data.team.includes(r.uid)).map(r => r.level || 1);
+      const avgLevel = partyLevels.length ? partyLevels.reduce((a,b)=>a+b,0) / partyLevels.length : 1;
+      const levelScale = 1 + Math.max(0, avgLevel - 1) * 0.10;
+      const hpScale = (stageId < 70
+        ? 0.75 + (stageId * 0.025)
+        : (1.95 + ((stageId - 70) * 0.018)) * Math.pow(1.13, lateBands)) * levelScale;
       const atkScale = stageId < 70
         ? 0.45 + (stageId * 0.009)
         : (1.08 + ((stageId - 70) * 0.009)) * Math.pow(1.10, lateBands);
@@ -124,11 +127,11 @@ const Battle = {
       container.classList.remove('hidden');
       circle.style.animation = 'none';
 
-      const duration = Math.max(650, 1200 / Math.max(1, this.speedMultiplier || 1));
+      const duration = Math.max(900, 1800 / Math.max(1, this.speedMultiplier || 1));
       circle.style.setProperty('--qte-duration', `${duration}ms`);
       // Restart only the QTE animation; avoid forcing a layout read on every tap.
       requestAnimationFrame(() => {
-        circle.style.animation = `qteShrink ${duration}ms linear forwards`;
+        circle.style.animation = `qtePulse ${duration}ms ease-in-out infinite alternate`;
       });
 
       let resolved = false;
@@ -188,6 +191,8 @@ const Battle = {
           if (u.buffs.supportCritDmg > 0) u.buffs.supportCritDmg--;
           if (u.buffs.teamAtk > 0) u.buffs.teamAtk--;
           if (u.buffs.teamCritDmg > 0) u.buffs.teamCritDmg--;
+          if (u.buffs.teamDef > 0) u.buffs.teamDef--;
+          if (u.buffs.teamSpd > 0) u.buffs.teamSpd--;
         }
         if (u.debuffs) {
           Object.keys(u.debuffs).forEach(k => { if (u.debuffs[k].turns > 0) u.debuffs[k].turns--; if (u.debuffs[k].turns <= 0) delete u.debuffs[k]; });
@@ -251,21 +256,32 @@ const Battle = {
     if (skill.type === 'teamBuff') {
       aliveAllies.forEach(a => {
         if (!a.buffs) a.buffs = {};
+        const stackKey = `stack_${skill.buff}`;
+        a.buffs[stackKey] = Math.min(20, (a.buffs[stackKey] || 0) + 1);
+        const stacks = a.buffs[stackKey];
+        const duration = skill.turns + (actor.charId === 'celestia' ? 1 + Math.floor((passiveLevel - 1) / 3) : 0);
         if (skill.buff === 'atk') {
-          a.buffs.teamAtk = Math.max(a.buffs.teamAtk || 0, skill.turns + (actor.charId === 'celestia' ? 1 + Math.floor((passiveLevel - 1) / 3) : 0));
-          a.buffs.teamAtkAmount = Math.max(a.buffs.teamAtkAmount || 0, skill.amount || 0.50);
-        }
-        if (skill.buff === 'critDmg') {
-          a.buffs.teamCritDmg = Math.max(a.buffs.teamCritDmg || 0, skill.turns + (actor.charId === 'celestia' ? 1 + Math.floor((passiveLevel - 1) / 3) : 0));
-          a.buffs.teamCritDmgAmount = Math.max(a.buffs.teamCritDmgAmount || 0, skill.amount || 0.60);
+          a.buffs.teamAtk = Math.max(a.buffs.teamAtk || 0, duration);
+          a.buffs.teamAtkAmount = Math.min(3.0, (skill.amount || 0.50) * stacks);
+        } else if (skill.buff === 'critDmg') {
+          a.buffs.teamCritDmg = Math.max(a.buffs.teamCritDmg || 0, duration);
+          a.buffs.teamCritDmgAmount = Math.min(3.0, (skill.amount || 0.60) * stacks);
+        } else if (skill.buff === 'def') {
+          a.buffs.teamDef = Math.max(a.buffs.teamDef || 0, duration);
+          a.buffs.teamDefAmount = Math.min(2.0, (skill.amount || 0.35) * stacks);
+        } else if (skill.buff === 'spd') {
+          a.buffs.teamSpd = Math.max(a.buffs.teamSpd || 0, duration);
+          a.buffs.teamSpdAmount = Math.min(2.0, (skill.amount || 0.20) * stacks);
         }
       });
-      this.log(`✨ ${actor.name} memperkuat seluruh tim dengan ${skill.name}!`);
+      this.log(`✨ ${actor.name}: ${skill.name}! Stack ${Math.min(20, Math.max(1, ...aliveAllies.map(a => a.buffs[`stack_${skill.buff}`] || 1)))}/20.`);
     }
     else if (skill.type === 'debuff') {
       if (target) {
         if (!target.debuffs) target.debuffs = {};
-        target.debuffs[skill.debuff] = { amount: skill.amount, turns: skill.turns };
+        const previous = target.debuffs[skill.debuff];
+        const stacks = Math.min(20, (previous && previous.stacks || 0) + 1);
+        target.debuffs[skill.debuff] = { amount: Math.min(0.95, skill.amount * stacks), turns: skill.turns, stacks };
         if (skill.debuff === 'defDown') target.defDown = skill.amount;
         if (actor.charId === 'shadow') {
           const count = Object.keys(target.debuffs).length;
@@ -318,6 +334,7 @@ const Battle = {
         let dmg = Math.max(1, Math.floor((actorAtk * skill.power) * (1 - mitigation)));
         if (targetUnit.debuffs && targetUnit.debuffs.damageTaken) dmg = Math.floor(dmg * (1 + targetUnit.debuffs.damageTaken.amount));
         if (actor.buffs && actor.buffs.teamAtk > 0) dmg = Math.floor(dmg * (1 + (actor.buffs.teamAtkAmount || 0.50)));
+        if (actor.buffs && actor.buffs.teamDef > 0) { /* defensive team buff is displayed and reduces incoming damage below */ }
         if (skill.power >= 4 || ['nox_execution', 'nox_true_blade'].includes(skillId)) {
           dmg = Math.floor(dmg * (1 + (this.finisherBonus || 0)));
           if (this.finisherBonus) { this.log(`💥 Finisher bonus +${Math.round(this.finisherBonus * 100)}%!`); this.finisherBonus = 0; }
@@ -541,6 +558,8 @@ const Battle = {
 
       const mitigation = targetDef / (targetDef + 100);
       let damage = Math.max(1, Math.floor(damageBase * (1 - mitigation)));
+    if (target.buffs && target.buffs.teamDef > 0) damage = Math.floor(damage * (1 - Math.min(.8, target.buffs.teamDefAmount || .35)));
+    if (target.debuffs && target.debuffs.atkDown) damage = Math.floor(damage * (1 - target.debuffs.atkDown.amount));
       
       if (target.buffs && target.buffs.shield > 0) {
         if (target.buffs.shield >= damage) { target.buffs.shield -= damage; damage = 0; } 
@@ -692,10 +711,13 @@ const Battle = {
         if (u.buffs.taunt) status += `<span class="status-icon taunt" title="Taunt">🎯</span>`;
         if (u.buffs.atk > 0) status += `<span class="status-icon buff" title="ATK Up">⬆️</span>`;
         if (u.buffs.supportAtk > 0) status += `<span class="status-icon buff" title="Support Buff" style="color:var(--accent-2)">🎻</span>`;
-        if (u.buffs.teamAtk > 0) status += `<span class="status-icon buff" title="War Hymn: ATK +${Math.round((u.buffs.teamAtkAmount || 0.5) * 100)}%">⚔️</span>`;
-        if (u.buffs.teamCritDmg > 0) status += `<span class="status-icon buff" title="Critical Blessing: Crit DMG +${Math.round((u.buffs.teamCritDmgAmount || 0.6) * 100)}%">💥</span>`;
+        if (u.buffs.teamAtk > 0) status += `<span class="status-icon buff" title="War Hymn: ATK +${Math.round((u.buffs.teamAtkAmount || 0.5) * 100)}%, stack ${u.buffs.stack_atk || 1}/20">⚔️</span>`;
+        if (u.buffs.teamDef > 0) status += `<span class="status-icon buff" title="Celestial Guard: DEF +${Math.round((u.buffs.teamDefAmount || .35)*100)}%, stack ${u.buffs.stack_def || 1}/20">🛡️</span>`;
+        if (u.buffs.teamSpd > 0) status += `<span class="status-icon buff" title="Tempo Symphony: SPD +${Math.round((u.buffs.teamSpdAmount || .2)*100)}%, stack ${u.buffs.stack_spd || 1}/20">💨</span>`;
+        if (u.buffs.teamCritDmg > 0) status += `<span class="status-icon buff" title="Critical Blessing: Crit DMG +${Math.round((u.buffs.teamCritDmgAmount || 0.6) * 100)}%, stack ${u.buffs.stack_critDmg || 1}/20">💥</span>`;
       }
       if (u.debuffs) {
+        if (u.debuffs.atkDown && u.debuffs.atkDown.turns > 0) status += `<span class="status-icon debuff" title="Curse of Weakness ${Math.round(u.debuffs.atkDown.amount*100)}% x${u.debuffs.atkDown.stacks || 1}">🔻</span>`;
         if (u.debuffs.damageTaken && u.debuffs.damageTaken.turns > 0) status += `<span class="status-icon debuff" title="Shadow Mark: menerima damage tambahan ${Math.round(u.debuffs.damageTaken.amount * 100)}% selama ${u.debuffs.damageTaken.turns} turn">☠️</span>`;
         if (u.debuffs.defDown && u.debuffs.defDown.turns > 0) status += `<span class="status-icon debuff" title="Armor Rupture: DEF -${Math.round(u.debuffs.defDown.amount * 100)}% selama ${u.debuffs.defDown.turns} turn">🛡️</span>`;
         Object.keys(u.debuffs).forEach(key => {

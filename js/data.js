@@ -39,7 +39,16 @@ const CRAFT_RECIPES = {
   angel_weapon: { name: 'Angel Sword', type: 'weapon', rarity: 8, emoji: '🗡️', atk: 500, def: 0, hp: 0, spd: 50, cost: { feather: 1 }, gold: 100000 },
   angel_armor: { name: 'Angel Armor', type: 'armor', rarity: 8, emoji: '🛡️', atk: 0, def: 300, hp: 3000, spd: 0, cost: { feather: 1 }, gold: 100000 },
   demon_weapon: { name: 'Demon Blade', type: 'weapon', rarity: 9, emoji: '🗡️', atk: 700, def: 0, hp: 0, spd: 30, cost: { horn: 1 }, gold: 100000 },
-  demon_armor: { name: 'Demon Plate', type: 'armor', rarity: 9, emoji: '🛡️', atk: 100, def: 200, hp: 2000, spd: 0, cost: { horn: 1 }, gold: 100000 }
+  demon_armor: { name: 'Demon Plate', type: 'armor', rarity: 9, emoji: '🛡️', atk: 100, def: 200, hp: 2000, spd: 0, cost: { horn: 1 }, gold: 100000 },
+  crystal_edge: { name: 'Crystal Edge', type: 'weapon', rarity: 2, emoji: '💎', atk: 95, def: 0, hp: 100, spd: 8, cost: { crystal: 5 }, gold: 3500 },
+  bloodfang: { name: 'Bloodfang Dagger', type: 'weapon', rarity: 3, emoji: '🩸', atk: 180, def: 0, hp: 0, spd: 18, cost: { blood: 6 }, gold: 9000 },
+  guardian_mail: { name: 'Guardian Mail', type: 'armor', rarity: 2, emoji: '🧥', atk: 0, def: 65, hp: 900, spd: 0, cost: { herb: 5 }, gold: 4000 },
+  wraith_coat: { name: 'Wraith Coat', type: 'armor', rarity: 3, emoji: '👻', atk: 25, def: 95, hp: 650, spd: 12, cost: { blood: 4, crystal: 3 }, gold: 11000 },
+  sage_talisman: { name: 'Sage Talisman', type: 'accessory', rarity: 2, emoji: '📿', atk: 35, def: 25, hp: 400, spd: 10, cost: { crystal: 4, herb: 2 }, gold: 5000 },
+  phoenix_ring: { name: 'Phoenix Ring', type: 'accessory', rarity: 4, emoji: '🔥', atk: 120, def: 40, hp: 1200, spd: 15, cost: { blood: 5, feather: 1 }, gold: 28000 },
+  storm_boots: { name: 'Storm Boots', type: 'accessory', rarity: 3, emoji: '🌪️', atk: 30, def: 30, hp: 300, spd: 28, cost: { feather: 2, crystal: 3 }, gold: 14000 },
+  abyss_relic: { name: 'Abyss Relic', type: 'accessory', rarity: 5, emoji: '🌀', atk: 220, def: 80, hp: 1800, spd: 20, cost: { horn: 1, blood: 8 }, gold: 60000 },
+  celestial_aegis: { name: 'Celestial Aegis', type: 'armor', rarity: 6, emoji: '🌟', atk: 80, def: 240, hp: 3200, spd: 8, cost: { feather: 3, crystal: 8 }, gold: 85000 }
 };
 
 const SKILLS = {
@@ -82,6 +91,10 @@ const SKILLS = {
   armor_rupture: { name: 'Armor Rupture', mp: 25, type: 'debuff', target: 'enemy', debuff: 'defDown', amount: 0.40, turns: 3, element: 'dark', desc: 'Mengurangi DEF musuh 40% selama 3 turn.' },
   war_hymn: { name: 'War Hymn', mp: 25, type: 'teamBuff', buff: 'atk', amount: 0.50, turns: 2, element: 'light', desc: 'ATK seluruh tim +50% selama 2 turn.' },
   critical_blessing: { name: 'Critical Blessing', mp: 25, type: 'teamBuff', buff: 'critDmg', amount: 0.60, turns: 2, element: 'light', desc: 'Critical damage seluruh tim +60% selama 2 turn.' },
+  celestial_guard: { name: 'Celestial Guard', mp: 28, type: 'teamBuff', buff: 'def', amount: 0.35, turns: 3, element: 'light', desc: 'DEF seluruh tim +35% selama 3 turn; stack buff hingga 20.' },
+  tempo_symphony: { name: 'Tempo Symphony', mp: 32, type: 'teamBuff', buff: 'spd', amount: 0.20, turns: 3, element: 'light', desc: 'SPD seluruh tim +20% selama 3 turn; stack buff hingga 20.' },
+  void_collapse: { name: 'Void Collapse', mp: 28, type: 'debuff', target: 'enemy', debuff: 'damageTaken', amount: 0.20, turns: 3, element: 'dark', desc: 'Target menerima damage tambahan 20% selama 3 turn.' },
+  curse_of_weakness: { name: 'Curse of Weakness', mp: 30, type: 'debuff', target: 'enemy', debuff: 'atkDown', amount: 0.25, turns: 3, element: 'dark', desc: 'ATK target turun 25% selama 3 turn.' },
   lightning_rush: { name: 'Lightning Rush', mp: 30, type: 'multiHit', hits: 5, power: 0.70, target: 'enemy', element: 'wind', desc: 'Menyerang 5 kali, tiap hit 70% ATK.' },
   resonance_break: { name: 'Resonance Break', mp: 20, type: 'resonance', target: 'enemy', element: 'wind', desc: 'Menambahkan 1 stack Resonance (maks. 5); tiap stack meningkatkan finisher berikutnya 12%.' }
 };
@@ -94,8 +107,8 @@ const CHARACTERS = {
   bard: { name: 'Heroic Bard', emoji: '🎺', rarity: 5, role: 'Support', element: 'wind', base: { hp: 2100, atk: 60, def: 130, spd: 135 }, growth: { hp: 190, atk: 6, def: 14, spd: 2.2 }, skills: ['support_inspire'] },
   oracle: { name: 'Cosmic Oracle', emoji: '🔮', rarity: 5, role: 'Support', element: 'dark', base: { hp: 2300, atk: 40, def: 150, spd: 145 }, growth: { hp: 210, atk: 4, def: 16, spd: 2.8 }, skills: ['support_inspire'] },
 
-  shadow: { name: 'Shadow', emoji: '🌑', rarity: 5, role: 'Debuffer', element: 'dark', base: { hp: 2050, atk: 205, def: 120, spd: 142 }, growth: { hp: 190, atk: 20, def: 12, spd: 2.1 }, skills: ['shadow_mark', 'armor_rupture'] },
-  celestia: { name: 'Celestia', emoji: '🎼', rarity: 5, role: 'Buffer', element: 'light', base: { hp: 2200, atk: 115, def: 145, spd: 140 }, growth: { hp: 205, atk: 11, def: 15, spd: 2.2 }, skills: ['war_hymn', 'critical_blessing'] },
+  shadow: { name: 'Shadow', emoji: '🌑', rarity: 5, role: 'Debuffer', element: 'dark', base: { hp: 2050, atk: 205, def: 120, spd: 142 }, growth: { hp: 190, atk: 20, def: 12, spd: 2.1 }, skills: ['shadow_mark', 'armor_rupture', 'void_collapse', 'curse_of_weakness'] },
+  celestia: { name: 'Celestia', emoji: '🎼', rarity: 5, role: 'Buffer', element: 'light', base: { hp: 2200, atk: 115, def: 145, spd: 140 }, growth: { hp: 205, atk: 11, def: 15, spd: 2.2 }, skills: ['war_hymn', 'critical_blessing', 'celestial_guard', 'tempo_symphony'] },
   raizen: { name: 'Raizen', emoji: '⚡', rarity: 5, role: 'Combo Builder', element: 'wind', base: { hp: 2150, atk: 220, def: 115, spd: 150 }, growth: { hp: 195, atk: 22, def: 11, spd: 2.4 }, skills: ['lightning_rush', 'resonance_break'] },
 
   // ===== DPS / LAINNYA =====
