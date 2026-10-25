@@ -136,16 +136,16 @@ const Battle = {
         if (resolved) return;
         resolved = true;
         clearTimeout(timeoutId);
+        container.removeEventListener('pointerdown', onPress);
         circle.removeEventListener('pointerdown', onPress);
-        circle.removeEventListener('click', onClick);
         container.classList.add('hidden');
         resolve(success);
       };
       const onPress = (event) => { event.preventDefault(); finish(true); };
-      const onClick = () => finish(true);
       const timeoutId = setTimeout(() => finish(false), duration);
+      // Accept touch, pen, mouse, and taps anywhere on the visible QTE overlay.
+      container.addEventListener('pointerdown', onPress, { once: true });
       circle.addEventListener('pointerdown', onPress, { once: true });
-      circle.addEventListener('click', onClick, { once: true });
     });
   },
 
@@ -483,7 +483,8 @@ const Battle = {
     let damageBase = actor.atk;
     if (actor.buffs && actor.buffs.atk > 0) damageBase = Math.floor(damageBase * 1.5); 
 
-    const isDodgeable = Math.random() < 0.35; 
+    // Always offer QTE for enemy attacks so the mobile dodge button is consistently available.
+    const isDodgeable = true; 
     
     if (isDodgeable) {
       this.log(`<span style="color:var(--accent-2); font-weight:bold;">⚠️ Serangan masuk! Klik lingkaran untuk menghindar!</span>`);
@@ -691,6 +692,15 @@ const Battle = {
         if (u.buffs.taunt) status += `<span class="status-icon taunt" title="Taunt">🎯</span>`;
         if (u.buffs.atk > 0) status += `<span class="status-icon buff" title="ATK Up">⬆️</span>`;
         if (u.buffs.supportAtk > 0) status += `<span class="status-icon buff" title="Support Buff" style="color:var(--accent-2)">🎻</span>`;
+        if (u.buffs.teamAtk > 0) status += `<span class="status-icon buff" title="War Hymn: ATK +${Math.round((u.buffs.teamAtkAmount || 0.5) * 100)}%">⚔️</span>`;
+        if (u.buffs.teamCritDmg > 0) status += `<span class="status-icon buff" title="Critical Blessing: Crit DMG +${Math.round((u.buffs.teamCritDmgAmount || 0.6) * 100)}%">💥</span>`;
+      }
+      if (u.debuffs) {
+        if (u.debuffs.damageTaken && u.debuffs.damageTaken.turns > 0) status += `<span class="status-icon debuff" title="Shadow Mark: menerima damage tambahan ${Math.round(u.debuffs.damageTaken.amount * 100)}% selama ${u.debuffs.damageTaken.turns} turn">☠️</span>`;
+        if (u.debuffs.defDown && u.debuffs.defDown.turns > 0) status += `<span class="status-icon debuff" title="Armor Rupture: DEF -${Math.round(u.debuffs.defDown.amount * 100)}% selama ${u.debuffs.defDown.turns} turn">🛡️</span>`;
+        Object.keys(u.debuffs).forEach(key => {
+          if (!['damageTaken', 'defDown'].includes(key) && u.debuffs[key] && u.debuffs[key].turns > 0) status += `<span class="status-icon debuff" title="${key}: ${u.debuffs[key].turns} turn">🔻</span>`;
+        });
       }
       
       const bossClass = u.isBoss ? 'boss-card' : '';
