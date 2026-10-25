@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.getElementById('fleeBtn')?.addEventListener('click', () => Battle.flee());
+
   document.getElementById('pull1Btn')?.addEventListener('click', () => {
     if (Player.spendGold(Gacha.COST_GOLD)) {
       const results = Gacha.pull(1);
@@ -55,7 +57,6 @@ let currentRarityFilter = 'all';
 let currentSortFilter = 'none';
 let teamRoleFilter = 'all';
 let teamRarityFilter = 'all';
-// Render bertahap: jumlah karakter boleh sangat banyak tanpa membuat DOM membengkak.
 const CHARACTER_PAGE_SIZE = 12;
 let rosterVisibleCount = CHARACTER_PAGE_SIZE;
 let teamVisibleCount = CHARACTER_PAGE_SIZE;
@@ -84,8 +85,6 @@ window.setTeamFilter = function(type, value, btnElement) {
   renderTeam();
 };
 
-// Render hanya halaman yang sedang dibuka. Sebelumnya setiap perubahan tim
-// membangun ulang roster, stage, crafting, dan shop sekaligus sehingga berat di HP.
 window.renderAll = function() {
   try {
     renderStats();
@@ -119,6 +118,20 @@ function renderStats() {
   }
 }
 
+// Helper: hitung sisa skip hari ini
+function getSkipInfo() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!Player.data.skip) Player.data.skip = { date: today, count: 0 };
+  if (Player.data.skip.date !== today) {
+    Player.data.skip = { date: today, count: 0 };
+    Player.save();
+  }
+  const used = Player.data.skip.count || 0;
+  const left = Math.max(0, 20 - used);
+  return { used, left, max: 20 };
+}
+window.getSkipInfo = getSkipInfo;
+
 function createCharCard(inst, isTeamSlot = false) {
   try {
     const c = CHARACTERS[inst.charId];
@@ -128,6 +141,7 @@ function createCharCard(inst, isTeamSlot = false) {
     const stats = Player.computeStats(inst);
     const expNeeded = inst.level >= 250 ? 0 : Player.expToNext(inst.level);
     const expText = inst.level >= 250 ? 'MAX LEVEL' : `EXP: ${inst.exp} / ${expNeeded}`;
+    const availPts = (typeof Player.getAvailableStatPoints === 'function') ? Player.getAvailableStatPoints(inst) : 0;
     
     let btnHtml = '';
     if (isTeamSlot) {
@@ -157,15 +171,26 @@ function createCharCard(inst, isTeamSlot = false) {
       ? `<div style="font-size:1.2rem; font-weight:800; color:#ffb547; text-shadow:0 0 10px #ffb547;">⭐ ${inst.evo} / 30</div>`
       : `<div class="rarity-stars">${'★'.repeat(c.rarity)}</div>`;
 
-    let critHtml = (stats.crit && stats.crit > 0) ? `<span>💥 CRIT: ${stats.crit}%</span>` : '';
+    let critHtml = (stats.crit && stats.crit > 0) ? `<span>💥 CRIT: ${stats.crit.toFixed(1)}%</span>` : '';
+    const elEmoji = ELEMENTS[c.element] ? ELEMENTS[c.element].emoji : '';
+
+    const statBadge = availPts > 0
+      ? `<div class="stat-badge" title="Poin stat tersedia">📊 +${availPts}</div>`
+      : '';
+
+    const statBtnStyle = availPts > 0
+      ? 'background:var(--success); color:#1a1d29; border:none; font-weight:900; box-shadow:0 0 8px var(--success);'
+      : 'background:var(--panel-2); border:1px solid var(--border); color:var(--text);';
+    const statBtnLabel = availPts > 0 ? `📊 Stat (${availPts})` : '📊 Stat';
 
     return `
       <div class="char-card rar-${c.rarity} ${isTeamSlot ? 'in-team' : ''} ${isNox ? 'nox-card' : ''}" data-uid="${inst.uid}">
+        ${statBadge}
         ${starHtml}
         <div class="char-emoji">${c.emoji || '👤'}</div>
         <div class="char-name">${c.name}</div>
         <div style="min-height: 24px; display:flex; justify-content:center; align-items:center;">${eqHtml}</div>
-        <div class="char-sub">${c.element} · <b style="color:${isNox ? '#ffb547' : '#3ddc84'}">${c.role}</b></div>
+        <div class="char-sub">${elEmoji} ${c.element} · <b style="color:${isNox ? '#ffb547' : '#3ddc84'}">${c.role}</b></div>
         <div class="char-lv" style="font-size: 0.9rem; margin-top: 4px;">Lv ${inst.level}</div>
         
         <div class="char-stats" style="margin-top: 8px; font-size: 0.75rem;">
@@ -179,12 +204,14 @@ function createCharCard(inst, isTeamSlot = false) {
         <div class="char-exp" style="font-size: 0.65rem; color: var(--accent-2); margin-top: 6px; font-weight: bold;">
           ${expText}
         </div>
+        ${availPts > 0 ? `<div class="char-exp" style="color:#3ddc84; background:rgba(61,220,132,0.15);">📊 ${availPts} Poin Stat Tersedia</div>` : ''}
         
         ${btnHtml}
         
-        <div style="display: flex; gap: 4px; margin-top: 6px;">
-          <div class="mini-btn" style="flex: 1; background:var(--panel-2); border:1px solid var(--border); color:var(--text);" onclick="event.stopPropagation(); openSkillModal(${inst.uid})">📖 Skill</div>
-          <div class="mini-btn" style="flex: 1; background:var(--panel-2); border:1px solid var(--border); color:var(--text);" onclick="event.stopPropagation(); openEquipModal(${inst.uid})">🎒 Equip</div>
+        <div class="char-actions">
+          <div class="mini-btn" onclick="event.stopPropagation(); openSkillModal(${inst.uid})">📖 Skill</div>
+          <div class="mini-btn" onclick="event.stopPropagation(); openEquipModal(${inst.uid})">🎒 Equip</div>
+          <div class="mini-btn" style="${statBtnStyle}" onclick="event.stopPropagation(); openStatModal(${inst.uid})">${statBtnLabel}</div>
         </div>
       </div>
     `;
@@ -226,11 +253,10 @@ window.loadMoreCharacters = function(kind) {
 function renderTeam() {
   const slotsEl = document.getElementById('teamSlots');
   const rosterEl = document.getElementById('teamRoster');
-  const relicSlotEl = document.getElementById('teamRelicSlot'); // Ambil elemen relic slot
+  const relicSlotEl = document.getElementById('teamRelicSlot');
 
   if (!slotsEl || !rosterEl) return;
 
-  // Render Karakter Tim
   let slotsHtml = '';
   for (let i = 0; i < 4; i++) {
     const uid = Player.data.team[i];
@@ -249,7 +275,6 @@ function renderTeam() {
   }
   slotsEl.innerHTML = slotsHtml;
 
-  // Render UI Relic
   if (relicSlotEl) {
     const rId = Player.data.equippedRelic;
     if (rId && RELICS[rId]) {
@@ -277,8 +302,6 @@ function renderTeam() {
     }
   }
 
-  // Filter seluruh data, tetapi hanya buat kartu untuk 12 karakter pertama.
-  // Ini menjaga DOM tetap kecil walau koleksi pemain berisi ribuan karakter.
   const available = [];
   for (const inst of Player.data.roster) {
     if (Player.data.team.includes(inst.uid)) continue;
@@ -305,7 +328,6 @@ window.addToTeam = function(uid) {
   if (Player.addToTeam(uid)) {
     renderStats();
     renderTeam();
-    // Roster hanya perlu diperbarui jika sedang terlihat.
     if (document.getElementById('page-roster')?.classList.contains('active')) renderRoster();
   } else alert('Tim sudah penuh atau kamu sudah memiliki Support di tim! (Maksimal 4 karakter & 1 Support)');
 };
@@ -369,6 +391,87 @@ window.buyRelic = function(rId) {
 };
 
 // ==========================================
+// STAT MODAL — tempat menambah stat
+// ==========================================
+window.openStatModal = function(uid) {
+  try {
+    const inst = Player.getInstance(uid);
+    if (!inst) { alert('Karakter tidak ditemukan.'); return; }
+    const c = CHARACTERS[inst.charId];
+    if (!c) { alert('Data karakter tidak valid.'); return; }
+    const modal = document.getElementById('statModal');
+    if (!modal) { alert('Modal stat tidak ditemukan di halaman!'); return; }
+    if (!inst.statPoints) inst.statPoints = { hp: 0, atk: 0, def: 0, spd: 0, crit: 0 };
+    const sp = inst.statPoints;
+    const available = Player.getAvailableStatPoints(inst);
+    const maxPts = Player.getMaxStatPoints(inst);
+    const used = Player.getUsedStatPoints(inst);
+    const stats = Player.computeStats(inst);
+    const rows = [
+      { key:'hp',   label:'❤️ HP',   per:'+30 HP',      value: sp.hp   || 0, color:'#3ddc84' },
+      { key:'atk',  label:'⚔️ ATK',  per:'+6 ATK',      value: sp.atk  || 0, color:'#ff4d5e' },
+      { key:'def',  label:'🛡️ DEF',  per:'+4 DEF',      value: sp.def  || 0, color:'#4aa8ff' },
+      { key:'spd',  label:'💨 SPD',  per:'+1 SPD',      value: sp.spd  || 0, color:'#ffb547' },
+      { key:'crit', label:'💥 CRIT', per:'+0.2% CRIT',  value: sp.crit || 0, color:'#b06bff' },
+    ];
+    let html = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+        <h3 style="margin:0;">📊 Alokasi Stat: ${c.name}</h3>
+        <button class="danger small-btn" onclick="document.getElementById('statModal').classList.add('hidden')">Tutup</button>
+      </div>
+      <div class="card" style="margin-bottom:12px; padding:10px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+          <b>Lv ${inst.level}</b>
+          <span>Poin tersedia: <b style="color:${available > 0 ? 'var(--success)' : 'var(--accent-2)'}">${available}</b> / ${maxPts}</span>
+        </div>
+        <div class="muted small" style="margin-top:4px;">Dipakai: ${used} poin. Setiap level memberi 2 poin (maks. 500).</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; font-size:.8rem;">
+          <span>❤️ HP: <b>${stats.maxHp}</b></span>
+          <span>⚔️ ATK: <b>${stats.atk}</b></span>
+          <span>🛡️ DEF: <b>${stats.def}</b></span>
+          <span>💨 SPD: <b>${stats.spd}</b></span>
+          <span>💥 CRIT: <b>${(stats.crit||0).toFixed(1)}%</b></span>
+          <span>💥 CRIT DMG: <b>+${(stats.critDmg||0).toFixed(0)}%</b></span>
+        </div>
+      </div>
+      ${available <= 0 ? `<div style="text-align:center; color:var(--danger); font-weight:800; margin-bottom:10px;">🚫 Tidak ada poin stat tersisa. Naikkan level karakter dulu!</div>` : ''}
+      <div style="max-height:55vh; overflow-y:auto; padding-right:4px;">
+    `;
+    rows.forEach(r => {
+      html += `
+        <div class="stat-row" style="border-left:4px solid ${r.color};">
+          <div class="stat-info">
+            <div><b>${r.label}</b> <span class="muted small">(${r.per})</span></div>
+            <div class="small muted">Dialokasikan: <span class="stat-value">${r.value}</span> poin</div>
+          </div>
+          <button ${available <= 0 ? 'disabled' : ''} onclick="allocateStatPoint(${uid}, '${r.key}')">+</button>
+        </div>
+      `;
+    });
+    html += `</div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="danger small-btn" style="flex:1;" onclick="resetStatPoints(${uid})">♻️ Reset Poin</button>
+      </div>`;
+    modal.innerHTML = html;
+    modal.classList.remove('hidden');
+  } catch (e) { console.error('Error open stat modal:', e); alert('Gagal membuka stat: ' + e.message); }
+};
+
+window.allocateStatPoint = function(uid, stat) {
+  const res = Player.allocateStat(uid, stat);
+  if (!res.ok) { alert(res.message); return; }
+  openStatModal(uid);
+  if (typeof window.renderAll === 'function') window.renderAll();
+};
+
+window.resetStatPoints = function(uid) {
+  if (!confirm('Reset semua poin stat karakter ini? Poin akan dikembalikan.')) return;
+  Player.resetStatPoints(uid);
+  openStatModal(uid);
+  if (typeof window.renderAll === 'function') window.renderAll();
+};
+
+// ==========================================
 // SKILL MODAL UI
 // ==========================================
 window.openSkillModal = function(uid) {
@@ -415,10 +518,12 @@ window.openSkillModal = function(uid) {
       if (skill.type === 'debuff') typeColor = '#a06bff';
       const scaledPower = skill.power ? (skill.power * (1 + (lv - 1) * 0.08)).toFixed(2) : null;
       const powerInfo = scaledPower ? `<div style="font-size:.75rem;color:var(--accent-2);margin-top:4px;">⚡ Power saat ini: ${scaledPower}x</div>` : '';
+      const elKey = (skill.element && skill.element !== 'none') ? skill.element : c.element;
+      const elEmoji = ELEMENTS[elKey] ? ELEMENTS[elKey].emoji : '';
       html += `
         <div class="skill-item" style="border-left:4px solid ${typeColor}; margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
-            <b style="color:${typeColor};font-size:1rem;">${skill.name}</b>
+            <b style="color:${typeColor};font-size:1rem;">${skill.name} ${elEmoji}</b>
             <span style="font-size:.75rem;background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;white-space:nowrap;">Lv ${lv}/10</span>
           </div>
           <div style="font-size:.85rem;line-height:1.4;">${skill.desc}</div>
@@ -579,6 +684,58 @@ window.openEquipModal = function(uid) {
 function renderStages() {
   const list = document.getElementById('stageList');
   if (!list) return;
+
+  const skipInfo = getSkipInfo();
+  const skipLeft = skipInfo.left;
+
+  // ===== BANNER COUNTER GLOBAL =====
+  const counterEl = document.getElementById('skipCounter');
+  if (counterEl) {
+    if (skipLeft > 0) {
+      counterEl.innerHTML = `⏩ <b>Sisa Skip Hari Ini:</b> <span style="color:var(--success); font-weight:900; font-size:1.1rem;">${skipLeft}</span> / 20`;
+      counterEl.className = 'skip-counter skip-counter-ok';
+    } else {
+      counterEl.innerHTML = `🚫 <b>Skip Habis!</b> (0/20) — Batas harian tercapai. Reset besok.`;
+      counterEl.className = 'skip-counter skip-counter-empty';
+    }
+  }
+
+  // ===== PANEL QUICK SKIP =====
+  const quickEl = document.getElementById('quickSkip');
+  if (quickEl) {
+    if (skipLeft > 0 && Player.data.stageProgress > 1) {
+      const maxFarm = Player.data.stageProgress;
+      const stageOptions = [];
+      // Urutkan dari stage tertinggi ke terendah supaya paling dekat stage progress di atas
+      for (let s = maxFarm; s >= 1; s--) {
+        const isBoss = s % 10 === 0;
+        const isMiniBoss = s % 5 === 0 && !isBoss;
+        const suffix = isBoss ? ' 👑' : isMiniBoss ? ' 👹' : '';
+        stageOptions.push(`<option value="${s}">Stage ${s}${suffix}</option>`);
+      }
+      quickEl.innerHTML = `
+        <div class="quick-skip-box">
+          <div class="quick-skip-title">⚡ Quick Skip — Pilih Stage & Jumlah</div>
+          <div class="quick-skip-controls">
+            <label class="qs-label">Stage:
+              <select id="quickSkipStage">${stageOptions.join('')}</select>
+            </label>
+            <label class="qs-label">Jumlah:
+              <input type="number" id="quickSkipCount" min="1" max="${skipLeft}" value="1">
+            </label>
+            <button class="primary qs-btn" onclick="quickSkip()">⏩ Skip Sekarang</button>
+          </div>
+          <small class="muted">Hanya stage yang dipilih yang di-skip. Stage lain tidak terpengaruh. Sisa: <b>${skipLeft}/20</b></small>
+        </div>
+      `;
+      quickEl.style.display = 'block';
+    } else {
+      quickEl.innerHTML = '';
+      quickEl.style.display = 'none';
+    }
+  }
+
+  // ===== DAFTAR STAGE =====
   const cards = [];
   const maxShow = Player.data.stageProgress;
   
@@ -586,15 +743,18 @@ function renderStages() {
     const isCompleted = i < Player.data.stageProgress;
     const isBoss = i % 10 === 0;
     const isMiniBoss = i % 5 === 0 && !isBoss; 
-    
     const monsterCount = Math.min(7, Math.ceil(i / 10));
     
     let actionHtml = '';
     if (isCompleted) {
+      // Tombol skip per-stage: SELALU "Skip 1x" (jelas hanya 1x untuk stage ini)
+      const skipBtn = skipLeft > 0
+        ? `<button class="primary" style="flex: 1; background: var(--success); color: #1a1d29;" onclick="skipStage(${i})">⏩ Skip 1x</button>`
+        : `<button class="primary" style="flex: 1; background: var(--panel-2); color: var(--muted); cursor: not-allowed;" disabled>🚫 Skip Habis</button>`;
       actionHtml = `
         <div style="display: flex; gap: 8px; margin-top: 10px;">
           <button class="primary" style="flex: 1;" onclick="Battle.start(${i})">⚔️ Bertarung</button>
-          <button class="primary" style="flex: 1; background: var(--success); color: #1a1d29;" onclick="skipStage(${i})">⏩ Skip</button>
+          ${skipBtn}
         </div>
       `;
     } else {
@@ -634,11 +794,24 @@ function renderStages() {
   list.innerHTML = cards.join('');
 }
 
+// Skip 1x untuk stage tertentu (tombol per card)
 window.skipStage = function(stageId) {
   if (!Player.data.team || Player.data.team.length === 0) {
     alert('Tim kamu kosong! Silakan isi tim terlebih dahulu di menu Tim.');
     return;
   }
+
+  const skipInfo = getSkipInfo();
+  if (skipInfo.left <= 0) {
+    alert('Batas skip harian tercapai (20x/hari). Coba lagi besok.');
+    renderStages();
+    return;
+  }
+
+  // Konfirmasi stage yang jelas supaya tidak bingung
+  if (!confirm(`Skip Stage ${stageId} 1x?\n\nSisa skip setelah ini: ${skipInfo.left - 1}/20\nStage lain TIDAK akan di-skip.`)) return;
+
+  Player.data.skip.count++;
   
   const multiplier = stageId * 1.5;
   const expReward = Math.floor(50 * multiplier);
@@ -666,15 +839,19 @@ window.skipStage = function(stageId) {
     if (eqDrop) {
       Player.addEquipment(eqDrop);
       const rData = EQUIP_RARITIES[eqDrop.rarity];
-      dropText += `<br><span style="color:${rData.color}; font-size:0.85rem;">🎁 ${eqDrop.name}</span>`;
+      const spdText = eqDrop.spd ? ` · SPD +${eqDrop.spd}` : '';
+      dropText += `<br><span style="color:${rData.color}; font-size:0.85rem;">🎁 ${eqDrop.name}${spdText}</span>`;
     }
   }
   
   Player.save();
+
+  renderStages();
   if (typeof window.renderAll === 'function') window.renderAll();
 
+  const remaining = 20 - Player.data.skip.count;
   const toast = document.createElement('div');
-  toast.innerHTML = `⏩ <b>Skip Stage ${stageId} Berhasil!</b><br>💰 +${goldReward.toLocaleString()} Gold | ✨ +${expReward.toLocaleString()} EXP${dropText}`;
+  toast.innerHTML = `⏩ <b>Skip Stage ${stageId} Berhasil!</b><br>💰 +${goldReward.toLocaleString()} Gold | ✨ +${expReward.toLocaleString()} EXP${dropText}<br><span style="font-size:0.85rem; font-weight:900;">Sisa skip hari ini: ${remaining}/20</span>`;
   toast.style.cssText = `
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     background: linear-gradient(135deg, #3ddc84, #23a35f); color: #fff;
@@ -684,6 +861,100 @@ window.skipStage = function(stageId) {
   `;
   document.body.appendChild(toast);
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
+};
+
+// Quick Skip: pilih stage + jumlah sekaligus (khusus stage yang dipilih saja)
+window.quickSkip = function() {
+  const stageEl = document.getElementById('quickSkipStage');
+  const countEl = document.getElementById('quickSkipCount');
+  if (!stageEl || !countEl) { alert('Panel Quick Skip tidak ditemukan.'); return; }
+
+  const stageId = parseInt(stageEl.value);
+  const rawCount = parseInt(countEl.value) || 1;
+
+  if (!stageId || stageId < 1) { alert('Pilih stage yang valid.'); return; }
+  if (rawCount < 1) { alert('Jumlah minimal 1.'); return; }
+
+  if (!Player.data.team || Player.data.team.length === 0) {
+    alert('Tim kamu kosong! Silakan isi tim dulu di menu Tim.');
+    return;
+  }
+
+  const skipInfo = getSkipInfo();
+  if (skipInfo.left <= 0) {
+    alert('Batas skip harian sudah habis (0/20). Reset besok.');
+    renderStages();
+    return;
+  }
+
+  const toSkip = Math.min(rawCount, skipInfo.left);
+  if (rawCount > skipInfo.left) {
+    alert(`Jumlah melebihi sisa skip harian (${skipInfo.left}). Akan di-skip sebanyak ${toSkip}x.`);
+  }
+
+  if (!confirm(`Skip Stage ${stageId} sebanyak ${toSkip}x?\n\nStage lain TIDAK akan terpengaruh.\nSisa skip setelah ini: ${skipInfo.left - toSkip}/20`)) return;
+
+  let totalGold = 0;
+  let totalExp = 0;
+  const matDrops = {};
+  const eqDrops = [];
+
+  for (let k = 0; k < toSkip; k++) {
+    Player.data.skip.count++;
+    const mult = stageId * 1.5;
+    totalGold += Math.floor(100 * mult);
+    totalExp += Math.floor(50 * mult);
+
+    if (typeof Battle !== 'undefined' && Battle.rollMaterialDrop) {
+      const md = Battle.rollMaterialDrop(stageId);
+      if (md) {
+        Player.addMaterial(md.matId, md.count);
+        matDrops[md.matId] = (matDrops[md.matId] || 0) + md.count;
+      }
+    }
+    if (typeof Battle !== 'undefined' && Battle.rollEquipmentDrop) {
+      const ed = Battle.rollEquipmentDrop(stageId);
+      if (ed) {
+        Player.addEquipment(ed);
+        eqDrops.push(ed);
+      }
+    }
+  }
+
+  Player.addGold(totalGold);
+  Player.data.team.forEach(uid => {
+    const inst = Player.getInstance(uid);
+    if (inst) Player.addExp(inst, totalExp);
+  });
+  Player.save();
+
+  renderStages();
+  if (typeof window.renderAll === 'function') window.renderAll();
+
+  let dropText = '';
+  Object.keys(matDrops).forEach(mId => {
+    const m = MATERIALS[mId];
+    dropText += `<br><span style="color:#3ddc84; font-size:0.85rem;">${m.emoji} ${m.name} x${matDrops[mId]}</span>`;
+  });
+  eqDrops.slice(0, 5).forEach(ed => {
+    const rData = EQUIP_RARITIES[ed.rarity];
+    const spdText = ed.spd ? ` · SPD +${ed.spd}` : '';
+    dropText += `<br><span style="color:${rData.color}; font-size:0.85rem;">🎁 ${ed.name}${spdText}</span>`;
+  });
+  if (eqDrops.length > 5) dropText += `<br><span class="muted small">…dan ${eqDrops.length - 5} equipment lain</span>`;
+
+  const remaining = 20 - Player.data.skip.count;
+  const toast = document.createElement('div');
+  toast.innerHTML = `⏩ <b>Skip Stage ${stageId} × ${toSkip} Berhasil!</b><br>💰 +${totalGold.toLocaleString()} Gold | ✨ +${totalExp.toLocaleString()} EXP / karakter${dropText}<br><span style="font-weight:900;">Sisa skip hari ini: ${remaining}/20</span>`;
+  toast.style.cssText = `
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #3ddc84, #23a35f); color: #fff;
+    padding: 14px 24px; border-radius: 12px; font-weight: 700; font-size: 0.9rem;
+    z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; max-width: 90vw;
+    border: 2px solid rgba(255,255,255,0.2); line-height: 1.5; max-height: 70vh; overflow-y: auto;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 5000);
 };
 
 // ==========================================
@@ -742,11 +1013,12 @@ function renderCrafting() {
     if (Player.data.gold < r.gold) canCraft = false;
     const goldColor = Player.data.gold >= r.gold ? 'var(--success)' : 'var(--danger)';
     const rColor = EQUIP_RARITIES[r.rarity].color;
+    const spdText = r.spd ? ` · SPD +${r.spd}` : '';
 
     eqHtml += `
       <div class="stage-card" style="border-color: ${rColor}; box-shadow: 0 0 10px ${rColor}33;">
         <h4 style="color: ${rColor}">${r.emoji} ${r.name}</h4>
-        <p class="muted small">Equipment eksklusif dengan stat luar biasa.</p>
+        <p class="muted small">Equipment eksklusif dengan stat luar biasa.${spdText}</p>
         <div style="margin: 10px 0; font-size:0.85rem; display:flex; flex-direction:column; gap:4px;">
           <span>Biaya: ${costStr}</span>
           <span style="color:${goldColor}">💰 Gold: ${(Player.data.gold || 0).toLocaleString()} / ${r.gold.toLocaleString()}</span>

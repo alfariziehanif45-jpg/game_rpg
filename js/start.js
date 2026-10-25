@@ -17,7 +17,6 @@
     startScreen.style.display = 'none';
     if (appScreen) { appScreen.classList.remove('hidden'); appScreen.style.display = 'block'; }
 
-    // --- CHEAT HANYA GOLD & GEMS ---
     try {
       if (cleanName === 'admin') {
         applyCurrencyCheat();
@@ -25,7 +24,6 @@
       }
     } catch (err) { console.warn("Cheat error:", err); }
 
-    // --- RENDER GAME ---
     try {
       if (typeof window.initGame === 'function') window.initGame();
       if (typeof window.renderAll === 'function') window.renderAll();
@@ -38,11 +36,9 @@
     const MAX_VAL = 999999999;
 
     if (typeof Player !== 'undefined') {
-      // Set saldo
       Player.data.gold = MAX_VAL;
       Player.data.gems = MAX_VAL;
 
-      // Cegat fungsi belanja agar tidak pernah berkurang
       Player.spendGold = function() { this.data.gold = MAX_VAL; return true; };
       Player.spendGems = function() { this.data.gems = MAX_VAL; return true; };
       
@@ -52,7 +48,6 @@
       if (typeof window.updateUI === 'function') window.updateUI();
     }
 
-    // Update UI Header
     function updateHeaderText() {
       const goldEl = document.getElementById('goldDisplay');
       const gemEl = document.getElementById('gemDisplay');

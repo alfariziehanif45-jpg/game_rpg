@@ -25,7 +25,6 @@
     <input type="text" id="playerNameInput" placeholder="Nama kamu..." maxlength="20" autocomplete="off">
     <button id="startBtn" class="primary">MULAI GAME</button>
     <p id="startError" class="start-error"></p>
-    <p class="start-hint">💡 Hint: coba masukkan nama <b>admin</b> 😉</p>
   </div>
 </div>
 
@@ -59,6 +58,13 @@
         <p>Karakter Dimiliki: <b id="statRoster">0</b></p>
         <p>Stage Terbuka: <b id="statStage">1</b></p>
         <p>Pity Counter: <b id="statPity">0</b> / 40</p>
+      </div>
+      <div class="card">
+        <h3>🌪️ Sistem Elemen</h3>
+        <p class="muted small">Api → Udara → Tanah → Air → Api. Cahaya ⇄ Kegelapan saling mengalahkan. Serangan elemen unggul memberi <b>+50% damage</b>, elemen lemah <b>-25%</b>.</p>
+        <p class="muted small">💨 SPD menentukan urutan giliran. Semakin tinggi SPD, semakin cepat karakter mengeluarkan skill.</p>
+        <p class="muted small">📊 Setiap level memberi <b>2 poin stat</b> (maks. 500 poin) untuk HP/ATK/DEF/SPD/CRIT.</p>
+        <p class="muted small">⏩ Skip stage dibatasi <b>20x per hari</b>.</p>
       </div>
       <button id="resetBtn" class="danger">🗑️ Reset Progres</button>
     </section>
@@ -130,11 +136,13 @@
       <div id="teamRoster" class="char-grid"></div>
     </section>
 
-    <!-- BATTLE -->
-    <section id="page-battle" class="page">
-      <h2>⚔️ Pilih Stage</h2>
-      <div id="stageList" class="stage-list"></div>
-    </section>
+ <!-- BATTLE -->
+<section id="page-battle" class="page">
+  <h2>⚔️ Pilih Stage</h2>
+  <div id="skipCounter" class="skip-counter"></div>
+  <div id="quickSkip"></div>
+  <div id="stageList" class="stage-list"></div>
+</section>
 
     <!-- CRAFTING -->
     <section id="page-craft" class="page">
@@ -190,6 +198,7 @@
 <div id="battleResult" class="modal hidden"></div>
 <div id="equipModal" class="modal hidden"></div>
 <div id="skillModal" class="modal hidden"></div>
+<div id="statModal" class="modal hidden"></div>
 
 <script src="js/data.js"></script>
 <script src="js/player.js"></script>

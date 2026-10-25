@@ -48,7 +48,14 @@ const CRAFT_RECIPES = {
   phoenix_ring: { name: 'Phoenix Ring', type: 'accessory', rarity: 4, emoji: '🔥', atk: 120, def: 40, hp: 1200, spd: 15, cost: { blood: 5, feather: 1 }, gold: 28000 },
   storm_boots: { name: 'Storm Boots', type: 'accessory', rarity: 3, emoji: '🌪️', atk: 30, def: 30, hp: 300, spd: 28, cost: { feather: 2, crystal: 3 }, gold: 14000 },
   abyss_relic: { name: 'Abyss Relic', type: 'accessory', rarity: 5, emoji: '🌀', atk: 220, def: 80, hp: 1800, spd: 20, cost: { horn: 1, blood: 8 }, gold: 60000 },
-  celestial_aegis: { name: 'Celestial Aegis', type: 'armor', rarity: 6, emoji: '🌟', atk: 80, def: 240, hp: 3200, spd: 8, cost: { feather: 3, crystal: 8 }, gold: 85000 }
+  celestial_aegis: { name: 'Celestial Aegis', type: 'armor', rarity: 6, emoji: '🌟', atk: 80, def: 240, hp: 3200, spd: 8, cost: { feather: 3, crystal: 8 }, gold: 85000 },
+  // ===== EQUIPMENT SPD BARU =====
+  swift_blade: { name: 'Swift Blade', type: 'weapon', rarity: 3, emoji: '🗡️', atk: 70, def: 0, hp: 0, spd: 45, cost: { crystal: 3, feather: 1 }, gold: 12000 },
+  gale_armor: { name: 'Gale Armor', type: 'armor', rarity: 3, emoji: '🥋', atk: 10, def: 85, hp: 900, spd: 25, cost: { herb: 4, crystal: 3 }, gold: 15000 },
+  windrunner_boots: { name: 'Windrunner Boots', type: 'accessory', rarity: 4, emoji: '👟', atk: 20, def: 25, hp: 400, spd: 60, cost: { feather: 2, crystal: 4 }, gold: 25000 },
+  tempest_ring: { name: 'Tempest Ring', type: 'accessory', rarity: 5, emoji: '💫', atk: 80, def: 30, hp: 800, spd: 90, cost: { horn: 1, feather: 3 }, gold: 70000 },
+  zephyr_edge: { name: 'Zephyr Edge', type: 'weapon', rarity: 5, emoji: '🌪️', atk: 200, def: 0, hp: 0, spd: 120, cost: { horn: 1, crystal: 6 }, gold: 80000 },
+  chrono_edge: { name: 'Chrono Edge', type: 'weapon', rarity: 7, emoji: '⏱️', atk: 320, def: 0, hp: 0, spd: 220, cost: { horn: 2, feather: 5 }, gold: 200000 }
 };
 
 const SKILLS = {
@@ -102,7 +109,6 @@ const SKILLS = {
 const CHARACTERS = {
   nox: { name: 'Nox, True Blade', emoji: '⚔️', rarity: 5, role: 'True Blade', element: 'dark', base: { hp: 2000, atk: 250, def: 150, spd: 130 }, growth: { hp: 200, atk: 30, def: 15, spd: 2 }, skills: ['nox_strike', 'nox_x_slash', 'nox_cross_blade', 'nox_whirlwind', 'nox_phantom_strike', 'nox_execution', 'nox_true_blade'] },
   
-  // ===== SUPPORT BARU (5★) =====
   muse: { name: 'Muse of War', emoji: '🎻', rarity: 5, role: 'Support', element: 'light', base: { hp: 2200, atk: 50, def: 140, spd: 140 }, growth: { hp: 200, atk: 5, def: 15, spd: 2.5 }, skills: ['support_inspire'] },
   bard: { name: 'Heroic Bard', emoji: '🎺', rarity: 5, role: 'Support', element: 'wind', base: { hp: 2100, atk: 60, def: 130, spd: 135 }, growth: { hp: 190, atk: 6, def: 14, spd: 2.2 }, skills: ['support_inspire'] },
   oracle: { name: 'Cosmic Oracle', emoji: '🔮', rarity: 5, role: 'Support', element: 'dark', base: { hp: 2300, atk: 40, def: 150, spd: 145 }, growth: { hp: 210, atk: 4, def: 16, spd: 2.8 }, skills: ['support_inspire'] },
@@ -111,7 +117,6 @@ const CHARACTERS = {
   celestia: { name: 'Celestia', emoji: '🎼', rarity: 5, role: 'Buffer', element: 'light', base: { hp: 2200, atk: 115, def: 145, spd: 140 }, growth: { hp: 205, atk: 11, def: 15, spd: 2.2 }, skills: ['war_hymn', 'critical_blessing', 'celestial_guard', 'tempo_symphony'] },
   raizen: { name: 'Raizen', emoji: '⚡', rarity: 5, role: 'Combo Builder', element: 'wind', base: { hp: 2150, atk: 220, def: 115, spd: 150 }, growth: { hp: 195, atk: 22, def: 11, spd: 2.4 }, skills: ['lightning_rush', 'resonance_break'] },
 
-  // ===== DPS / LAINNYA =====
   alden: { name: 'Sir Alden', emoji: '🗡️', rarity: 3, role: 'DPS', element: 'fire', base: { hp: 1000, atk: 95, def: 62, spd: 98 }, growth: { hp: 90, atk: 9, def: 6, spd: 1.2 }, skills: ['strike', 'heavy_blow'] },
   mira: { name: 'Mira Sang Es', emoji: '🧊', rarity: 3, role: 'Summoner', element: 'water', base: { hp: 780, atk: 105, def: 45, spd: 102 }, growth: { hp: 70, atk: 11, def: 5, spd: 1.3 }, skills: ['strike', 'summon_golem'] },
   kael: { name: 'Kael Bayangan', emoji: '🥷', rarity: 3, role: 'Debuffer', element: 'dark', base: { hp: 820, atk: 110, def: 48, spd: 112 }, growth: { hp: 72, atk: 12, def: 5, spd: 1.5 }, skills: ['strike', 'weaken'] },
@@ -144,13 +149,13 @@ const MONSTERS = {
 
 const BOSSES = {
   miniboss: { 
-    name: 'Gate Keeper', emoji: '👹', isBoss: true, phase: 1,
+    name: 'Gate Keeper', emoji: '👹', isBoss: true, phase: 1, element: 'fire',
     baseHp: 5000, baseAtk: 300, baseDef: 80, baseSpd: 100,
     skills: ['heavy_blow', 'quake', 'war_cry'],
     phase2Hp: 0.5, 
   },
   boss: { 
-    name: 'System Administrator', emoji: '🌌', isBoss: true, phase: 1,
+    name: 'System Administrator', emoji: '🌌', isBoss: true, phase: 1, element: 'dark',
     baseHp: 15000, baseAtk: 500, baseDef: 150, baseSpd: 120,
     skills: ['dark_nova', 'heavy_blow', 'time_warp', 'weaken'],
     phase2Hp: 0.7, 
@@ -159,37 +164,60 @@ const BOSSES = {
 };
 
 /* ==========================================================
-   data.js — Database
+   Sistem Elemen — counter & multiplier
    ========================================================== */
+const ELEMENTS = {
+  fire:  { name: 'Api', emoji: '🔥', strong: ['wind'], weak: ['water'] },
+  water: { name: 'Air', emoji: '💧', strong: ['fire'], weak: ['earth'] },
+  earth: { name: 'Tanah', emoji: '🌍', strong: ['water'], weak: ['wind'] },
+  wind:  { name: 'Udara', emoji: '🌪️', strong: ['earth'], weak: ['fire'] },
+  light: { name: 'Cahaya', emoji: '✨', strong: ['dark'], weak: ['dark'] },
+  dark:  { name: 'Kegelapan', emoji: '🌑', strong: ['light'], weak: ['light'] }
+};
 
-// ... (Biarkan EQUIP_RARITIES, EQUIP_BASES, MATERIALS, POTIONS, CRAFT_RECIPES, SKILLS, CHARACTERS, MONSTERS, BOSSES sama persis seperti sebelumnya) ...
+function getElementMultiplier(atkEl, defEl) {
+  if (!atkEl || !defEl || atkEl === 'none' || defEl === 'none') return 1;
+  const chart = ELEMENTS[atkEl];
+  if (!chart) return 1;
+  if (chart.strong && chart.strong.includes(defEl)) return 1.5;
+  if (chart.weak && chart.weak.includes(defEl)) return 0.75;
+  return 1;
+}
 
-// --- TAMBAHKAN DATABASE RELIC DI BAWAH BOSSES ---
+/* ==========================================================
+   Database Relic
+   ========================================================== */
 const RELICS = {
-  // RARITY 0: COMMON
   relic_wood: { name: 'Wooden Charm', emoji: '🪵', rarity: 0, price: 100, effect: 'hp', baseVal: 100, desc: 'Memberikan tambahan Max HP ke seluruh tim.' },
-  
-  // RARITY 1: UNCOMMON
   relic_iron: { name: 'Iron Shield', emoji: '🛡️', rarity: 1, price: 500, effect: 'def', baseVal: 20, desc: 'Memberikan tambahan DEF ke seluruh tim.' },
-  
-  // RARITY 2: RARE
   relic_swift: { name: 'Swift Boots', emoji: '👟', rarity: 2, price: 1500, effect: 'spd', baseVal: 15, desc: 'Memberikan tambahan SPD ke seluruh tim.' },
   relic_sapphire: { name: 'Sapphire Orb', emoji: '🔮', rarity: 2, price: 2000, effect: 'cd', baseVal: 1, desc: 'Mengurangi Cooldown skill sebanyak 1 giliran.' },
-  
-  // RARITY 3: EPIC
   relic_ruby: { name: 'Ruby Ring', emoji: '💍', rarity: 3, price: 5000, effect: 'atk', baseVal: 50, desc: 'Memberikan tambahan ATK ke seluruh tim.' },
   relic_lens: { name: 'Eagle Lens', emoji: '🦅', rarity: 3, price: 6000, effect: 'crit', baseVal: 10, desc: 'Menambahkan 10% Crit Chance ke seluruh tim.' },
-  
-  // RARITY 4: MYTHIC
   relic_crown: { name: 'Crown of Kings', emoji: '👑', rarity: 4, price: 15000, effect: 'atk_pct', baseVal: 15, desc: 'Meningkatkan ATK seluruh tim sebesar 15%.' },
   relic_holy: { name: 'Holy Grail', emoji: '🏆', rarity: 4, price: 18000, effect: 'buff', baseVal: 20, desc: 'Meningkatkan efek Buff/Heal skill sebesar 20%.' },
-  
-  // RARITY 5: LEGEND
   relic_dragon: { name: 'Dragon Heart', emoji: '🐉', rarity: 5, price: 50000, effect: 'all_pct', baseVal: 10, desc: 'Meningkatkan SEMUA stat tim sebesar 10%.' },
-  
-  // RARITY 6: HONOR
   relic_infinity: { name: 'Infinity Gauntlet', emoji: '🧤', rarity: 6, price: 150000, effect: 'cd_buff', baseVal: 2, desc: 'Mengurangi CD 2 giliran & menambah efek Buff 30%.' },
-  
-  // RARITY 7: SECRET
   relic_chaos: { name: 'Chaos Core', emoji: '🌌', rarity: 7, price: 500000, effect: 'chaos', baseVal: 0, desc: 'Memotong CD 1 giliran, +50% Buff/Heal, +20% ATK & HP tim.' }
+};
+
+/* ==========================================================
+   CREATOR ENCOUNTER — event langka high-risk high-reward
+   ========================================================== */
+const CREATOR_ENCOUNTER = {
+  chance: 0.03,       // 3% per battle
+  minStage: 5,        // hanya stage >= 5
+  cooldown: 20,       // minimal 20 battle antar encounter
+  name: '??? Creator ???',
+  emoji: '👁️',
+  dialogues: {
+    intro:        'Kamu... hanya semut kecil di hadapanku.',
+    afterAttack:  'Seranganmu? Seperti angin. Kamu hanya semut kecil di hadapanku.',
+    beforeGamble: 'Mari bermain, semut kecil. Satu warna membawa berkah, satu membawa kematian. Pilih.'
+  },
+  blueRewards: {
+    statPoints: 20,   // per team member
+    gems: 1000,
+    stageSkip: 2
+  }
 };

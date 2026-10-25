@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cards.forEach(card => {
       if (card.querySelector('.evo-container')) return;
 
-      // 1. Cari UID Karakter
       let uid = null;
       if (card.dataset.uid) uid = parseInt(card.dataset.uid);
       else if (card.getAttribute('onclick')) {
@@ -32,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const inst = Player.getInstance(uid);
       if (!inst) return;
 
-      // 2. Tentukan Kelas Warna & Partikel
       const currentEvo = inst.evo || 1;
       const isNox = inst.charId === 'nox';
       
@@ -50,11 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (isNox) {
-        // Nox selalu memiliki partikel tebal (Bintang 30)
         starClass = 'star-blue particles-5';
       }
 
-      // 3. Buat Elemen Badge Bintang
       const evoEl = document.createElement('div');
       evoEl.className = 'evo-container';
       
@@ -65,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // 4. Buat Tombol Evolusi (Kecuali Nox)
       if (isNox) {
         evoEl.innerHTML += `<div style="font-size: 0.75rem; color: var(--accent-2); margin-top: 6px; font-weight: bold; text-align: center;">Auto Evolve tiap 5 Stage</div>`;
       } else {
@@ -79,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
           btnGroup.style.width = '100%';
           btnGroup.style.marginTop = '6px';
 
-          // Tombol Biasa
           const btn = document.createElement('button');
           btn.className = 'mini-btn evolve-btn';
           btn.style.flex = '1';
@@ -95,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           };
 
-          // Tombol MAX
           const btnMax = document.createElement('button');
           btnMax.className = 'mini-btn max-evolve-btn';
           btnMax.style.flex = '1';
