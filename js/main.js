@@ -18,9 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const pageId = `page-${btn.dataset.page}`;
       const pageEl = document.getElementById(pageId);
       if (pageEl) pageEl.classList.add('active');
+      
       if (btn.dataset.page === 'roster') renderRoster();
       if (btn.dataset.page === 'team') renderTeam();
       if (btn.dataset.page === 'battle') renderStages();
+      if (btn.dataset.page === 'bossrush') renderBossRush(); // <--- TAMBAHAN
       if (btn.dataset.page === 'craft') renderCrafting();
       if (btn.dataset.page === 'shop') renderShop();
     });
@@ -100,6 +102,7 @@ window.renderAll = function() {
       case 'page-roster': renderRoster(); break;
       case 'page-team': renderTeam(); break;
       case 'page-battle': renderStages(); break;
+      case 'page-bossrush': renderBossRush(); break; // <--- TAMBAHAN
       case 'page-craft': renderCrafting(); break;
       case 'page-shop': renderShop(); break;
     }
@@ -118,7 +121,48 @@ function renderStats() {
   }
 }
 
-// Helper: hitung sisa skip hari ini
+// ==========================================
+// BOSS RUSH UI RENDER
+// ==========================================
+window.renderBossRush = function() {
+  const container = document.getElementById('bossRushContent');
+  if (!container) return;
+
+  const floor = Player.data.bossRushFloor || 1;
+  
+  if (floor > 500) {
+    container.innerHTML = `
+      <div class="card" style="text-align:center; padding:30px;">
+        <h2 style="color:#ffb547; font-size:2rem;">🏆 CONQUEROR</h2>
+        <p>Kamu telah menaklukkan seluruh 500 lantai Boss Rush!</p>
+      </div>
+    `;
+    return;
+  }
+
+  const bossTemplate = BOSS_RUSH_POOL[(floor - 1) % BOSS_RUSH_POOL.length];
+  const rewardGems = 50 + (floor * 10);
+
+  container.innerHTML = `
+    <div class="card" style="text-align:center; border: 2px solid #ffb547; background: rgba(255,181,71,0.05);">
+      <h3 style="color:#ffb547; font-size:1.5rem; margin-bottom:5px;">FLOOR ${floor} / 500</h3>
+      <p class="muted small">Reward: 💎 ${rewardGems.toLocaleString()} Gems</p>
+      
+      <div style="font-size:4rem; margin:20px 0;">${bossTemplate.emoji}</div>
+      <h4 style="font-size:1.2rem; margin-bottom:10px;">${bossTemplate.name}</h4>
+      
+      <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 10px; margin: 15px 0; border-left: 4px solid #4aa8ff; text-align: left;">
+        <p style="font-style: italic; color:#8a90a8; font-size: 1rem; margin-bottom: 10px;">"${bossTemplate.riddle}"</p>
+        <p style="font-size: 0.8rem; color: #ffb547;">🔍 <b>Hint:</b> ${bossTemplate.hint}</p>
+      </div>
+      
+      <button class="primary" onclick="Battle.startBossRush(${floor})" style="padding: 15px 40px; font-size: 1.1rem; background: linear-gradient(135deg, #ffb547, #ff4d5e);">
+        ⚔️ Tantang Boss
+      </button>
+    </div>
+  `;
+};
+
 function getSkipInfo() {
   const today = new Date().toISOString().slice(0, 10);
   if (!Player.data.skip) Player.data.skip = { date: today, count: 0 };
@@ -161,7 +205,9 @@ function createCharCard(inst, isTeamSlot = false) {
           const item = Player.data.inventory.find(i => i.id === inst.equipment[slot]);
           if (item) {
             const rColor = (EQUIP_RARITIES[item.rarity] || {color: '#fff'}).color;
-            eqHtml += `<span title="${item.name}" style="filter: drop-shadow(0 0 4px ${rColor}); margin: 0 2px; font-size: 1.1rem;">${item.emoji}</span>`;
+            const lv = item.enhanceLevel || 0;
+            const lvBadge = lv > 0 ? `<span style="position:absolute;top:-3px;right:-6px;font-size:0.5rem;color:#ffb547;font-weight:900;text-shadow:0 0 4px #000;">+${lv}</span>` : '';
+            eqHtml += `<span title="${item.name} +${lv}" style="position:relative;display:inline-block;margin:0 3px;filter:drop-shadow(0 0 4px ${rColor});font-size:1.1rem;">${item.emoji}${lvBadge}</span>`;
           }
         }
       });
@@ -340,9 +386,6 @@ window.removeFromTeam = function(uid) {
   }
 };
 
-// ==========================================
-// TOKO RELIC
-// ==========================================
 function renderShop() {
   const shopList = document.getElementById('shopList');
   const goldDisplay = document.getElementById('shopGoldDisplay');
@@ -390,9 +433,56 @@ window.buyRelic = function(rId) {
   }
 };
 
-// ==========================================
-// STAT MODAL — tempat menambah stat
-// ==========================================
+function bindStatModalEvents(uid) {
+  const modal = document.getElementById('statModal');
+  if (!modal) return;
+  const inst = Player.getInstance(uid);
+  if (!inst) return;
+  const available = Player.getAvailableStatPoints(inst);
+
+  modal.querySelectorAll('.stat-quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      const statKey = btn.dataset.stat;
+      const amount = btn.dataset.amount;
+      const input = modal.querySelector(`.stat-amount-input[data-stat="${statKey}"]`);
+      if (!input) return;
+      let target = amount === 'max' ? available : (parseInt(amount, 10) || 1);
+      target = Math.max(1, Math.min(target, Math.max(1, available)));
+      input.value = String(target);
+      input.focus();
+    });
+  });
+
+  modal.querySelectorAll('.stat-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      const statKey = btn.dataset.stat;
+      const input = modal.querySelector(`.stat-amount-input[data-stat="${statKey}"]`);
+      let amount = input ? parseInt(input.value, 10) : 1;
+      if (!Number.isFinite(amount) || amount < 1) amount = 1;
+      if (amount > available) amount = available;
+      window.allocateStatPoint(uid, statKey, amount);
+    });
+  });
+
+  modal.querySelectorAll('.stat-amount-input').forEach(input => {
+    input.addEventListener('input', () => {
+      let v = parseInt(input.value, 10);
+      if (!Number.isFinite(v) || v < 1) v = 1;
+      if (v > available) v = available;
+      if (v > 1) input.value = String(v);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const statKey = input.dataset.stat;
+        const btn = modal.querySelector(`.stat-add-btn[data-stat="${statKey}"]`);
+        if (btn && !btn.disabled) btn.click();
+      }
+    });
+  });
+}
+
 window.openStatModal = function(uid) {
   try {
     const inst = Player.getInstance(uid);
@@ -402,11 +492,14 @@ window.openStatModal = function(uid) {
     const modal = document.getElementById('statModal');
     if (!modal) { alert('Modal stat tidak ditemukan di halaman!'); return; }
     if (!inst.statPoints) inst.statPoints = { hp: 0, atk: 0, def: 0, spd: 0, crit: 0 };
+
     const sp = inst.statPoints;
     const available = Player.getAvailableStatPoints(inst);
     const maxPts = Player.getMaxStatPoints(inst);
     const used = Player.getUsedStatPoints(inst);
     const stats = Player.computeStats(inst);
+    const noPoints = available <= 0;
+
     const rows = [
       { key:'hp',   label:'❤️ HP',   per:'+30 HP',      value: sp.hp   || 0, color:'#3ddc84' },
       { key:'atk',  label:'⚔️ ATK',  per:'+6 ATK',      value: sp.atk  || 0, color:'#ff4d5e' },
@@ -414,6 +507,7 @@ window.openStatModal = function(uid) {
       { key:'spd',  label:'💨 SPD',  per:'+1 SPD',      value: sp.spd  || 0, color:'#ffb547' },
       { key:'crit', label:'💥 CRIT', per:'+0.2% CRIT',  value: sp.crit || 0, color:'#b06bff' },
     ];
+
     let html = `
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
         <h3 style="margin:0;">📊 Alokasi Stat: ${c.name}</h3>
@@ -422,7 +516,7 @@ window.openStatModal = function(uid) {
       <div class="card" style="margin-bottom:12px; padding:10px; text-align:left;">
         <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
           <b>Lv ${inst.level}</b>
-          <span>Poin tersedia: <b style="color:${available > 0 ? 'var(--success)' : 'var(--accent-2)'}">${available}</b> / ${maxPts}</span>
+          <span>Poin tersedia: <b style="color:${!noPoints ? 'var(--success)' : 'var(--accent-2)'}">${available}</b> / ${maxPts}</span>
         </div>
         <div class="muted small" style="margin-top:4px;">Dipakai: ${used} poin. Setiap level memberi 2 poin (maks. 500).</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; font-size:.8rem;">
@@ -434,31 +528,48 @@ window.openStatModal = function(uid) {
           <span>💥 CRIT DMG: <b>+${(stats.critDmg||0).toFixed(0)}%</b></span>
         </div>
       </div>
-      ${available <= 0 ? `<div style="text-align:center; color:var(--danger); font-weight:800; margin-bottom:10px;">🚫 Tidak ada poin stat tersisa. Naikkan level karakter dulu!</div>` : ''}
+      ${noPoints ? `<div style="text-align:center; color:var(--danger); font-weight:800; margin-bottom:10px;">🚫 Tidak ada poin stat tersisa. Naikkan level karakter dulu!</div>` : ''}
+      <div class="muted small" style="text-align:left; margin-bottom:10px;">💡 Ketik jumlah poin di kotak input, atau klik preset (1/5/10/MAX) untuk mengisi cepat. Tekan <b>+ Tambah</b> untuk eksekusi. Bisa tekan Enter juga.</div>
       <div style="max-height:55vh; overflow-y:auto; padding-right:4px;">
     `;
+
     rows.forEach(r => {
+      const disabledAttr = noPoints ? 'disabled' : '';
+      const maxVal = Math.max(1, available);
       html += `
-        <div class="stat-row" style="border-left:4px solid ${r.color};">
-          <div class="stat-info">
+        <div class="stat-row" style="border-left:4px solid ${r.color}; flex-wrap:wrap;">
+          <div class="stat-info" style="flex:1 1 140px; min-width:120px;">
             <div><b>${r.label}</b> <span class="muted small">(${r.per})</span></div>
             <div class="small muted">Dialokasikan: <span class="stat-value">${r.value}</span> poin</div>
           </div>
-          <button ${available <= 0 ? 'disabled' : ''} onclick="allocateStatPoint(${uid}, '${r.key}')">+</button>
+          <div class="stat-add-controls">
+            <input type="number" class="stat-amount-input" data-stat="${r.key}" min="1" max="${maxVal}" value="1" ${disabledAttr} inputmode="numeric" aria-label="Jumlah poin ${r.label}">
+            <button class="stat-quick-btn" data-stat="${r.key}" data-amount="1" ${disabledAttr}>1</button>
+            <button class="stat-quick-btn" data-stat="${r.key}" data-amount="5" ${disabledAttr}>5</button>
+            <button class="stat-quick-btn" data-stat="${r.key}" data-amount="10" ${disabledAttr}>10</button>
+            <button class="stat-quick-btn" data-stat="${r.key}" data-amount="max" ${disabledAttr}>MAX</button>
+            <button class="stat-add-btn" data-stat="${r.key}" data-uid="${uid}" ${disabledAttr}>+ Tambah</button>
+          </div>
         </div>
       `;
     });
+
     html += `</div>
       <div style="display:flex; gap:8px; margin-top:12px;">
         <button class="danger small-btn" style="flex:1;" onclick="resetStatPoints(${uid})">♻️ Reset Poin</button>
       </div>`;
+
     modal.innerHTML = html;
     modal.classList.remove('hidden');
-  } catch (e) { console.error('Error open stat modal:', e); alert('Gagal membuka stat: ' + e.message); }
+    bindStatModalEvents(uid);
+  } catch (e) {
+    console.error('Error open stat modal:', e);
+    alert('Gagal membuka stat: ' + e.message);
+  }
 };
 
-window.allocateStatPoint = function(uid, stat) {
-  const res = Player.allocateStat(uid, stat);
+window.allocateStatPoint = function(uid, stat, amount = 1) {
+  const res = Player.allocateStat(uid, stat, amount);
   if (!res.ok) { alert(res.message); return; }
   openStatModal(uid);
   if (typeof window.renderAll === 'function') window.renderAll();
@@ -471,9 +582,6 @@ window.resetStatPoints = function(uid) {
   if (typeof window.renderAll === 'function') window.renderAll();
 };
 
-// ==========================================
-// SKILL MODAL UI
-// ==========================================
 window.openSkillModal = function(uid) {
   try {
     const inst = Player.getInstance(uid);
@@ -563,12 +671,17 @@ window.upgradeCharacterPassive = function(uid) {
   else { renderAll(); openSkillModal(uid); }
 };
 
-// ==========================================
-// EQUIPMENT MODAL UI
-// ==========================================
 window.equipTypeFilter = window.equipTypeFilter || 'all';
 window.equipRarityFilter = window.equipRarityFilter || 'all';
 window.setEquipmentFilter = function(kind, value, uid) { if (kind === 'type') window.equipTypeFilter = value; else window.equipRarityFilter = value; openEquipModal(uid); };
+
+function getEnhanceLvColor(lv) {
+  if (lv >= 30) return '#ffb547';
+  if (lv >= 20) return '#b06bff';
+  if (lv >= 10) return '#4aa8ff';
+  if (lv >= 1) return '#3ddc84';
+  return '#8a90a8';
+}
 
 window.openEquipModal = function(uid) {
   try {
@@ -577,45 +690,80 @@ window.openEquipModal = function(uid) {
     const modal = document.getElementById('equipModal');
     const c = CHARACTERS[inst.charId];
     if (!c) return;
-    
+
+    const gold = Player.data.gold || 0;
+    const maxLv = Player.ENHANCE_MAX;
+
     let html = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <h3 style="margin:0;">🎒 Equipment: ${c.name}</h3>
         <button class="danger small-btn" onclick="document.getElementById('equipModal').classList.add('hidden')">Tutup</button>
       </div>
-      
-      <div style="display:flex; gap:10px; justify-content:center; margin-bottom:20px;">
+
+      <div class="card" style="padding:8px 10px; margin-bottom:12px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:0.85rem;">💰 Gold: <b style="color:var(--accent-2)">${gold.toLocaleString()}</b></span>
+          <span style="font-size:0.7rem; color:var(--muted);">Enhance maks <b style="color:#ffb547;">+${maxLv}</b></span>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px; flex-wrap:wrap;">
     `;
-    
+
     ['weapon', 'armor', 'accessory'].forEach(slot => {
       const eqId = inst.equipment[slot];
       const item = eqId ? Player.data.inventory.find(i => i.id === eqId) : null;
-      
+
       if (item) {
         const rData = EQUIP_RARITIES[item.rarity] || { color: '#fff' };
+        const lv = item.enhanceLevel || 0;
+        const lvColor = getEnhanceLvColor(lv);
+        const maxed = lv >= maxLv;
+        const cost = Player.getEnhanceCost(item);
+        const canEnhance = !maxed && gold >= cost;
         const isAirblade = item.id === 'eq_airblade';
-        
-        const lepasBtn = isAirblade 
-          ? `<div style="font-size:0.6rem; color:var(--accent-2); margin-top:4px; text-align:center;">🔒 Bawaan</div>` 
-          : `<button class="danger" style="padding:4px 8px; font-size:0.7rem; width:100%; margin-top:4px;" onclick="Player.unequipItem(${uid}, '${slot}'); openEquipModal(${uid});">Lepas</button>`;
+        const es = Player.getEnhancedStats(item);
+
+        const statParts = [];
+        if (es.atk) statParts.push(`⚔️${es.atk}`);
+        if (es.def) statParts.push(`🛡️${es.def}`);
+        if (es.hp) statParts.push(`❤️${es.hp}`);
+        if (es.spd) statParts.push(`💨${es.spd}`);
+        if (es.crit) statParts.push(`💥${es.crit}%`);
+        if (es.critDmg) statParts.push(`💥+${es.critDmg}%`);
+
+        const enhanceBtnHtml = maxed
+          ? `<div style="font-size:0.7rem; color:#ffb547; font-weight:900; margin-top:6px; text-align:center;">⭐ MAX +${maxLv}</div>`
+          : `<button class="enhance-btn" style="width:100%; margin-top:6px; font-size:0.72rem; padding:6px 4px;" ${canEnhance ? '' : 'disabled'} onclick="enhanceEquipItem('${item.id}', ${uid})">
+              ⚡ Enhance ke +${lv + 1}<br><span style="font-size:0.62rem; opacity:0.85;">💰 ${cost.toLocaleString()}</span>
+            </button>`;
+
+        const lepasBtn = isAirblade
+          ? `<div style="font-size:0.6rem; color:var(--accent-2); margin-top:4px; text-align:center;">🔒 Bawaan</div>`
+          : `<button class="danger" style="padding:4px 8px; font-size:0.68rem; width:100%; margin-top:4px;" onclick="Player.unequipItem(${uid}, '${slot}'); openEquipModal(${uid});">Lepas</button>`;
 
         html += `
-          <div class="eq-slot" style="border-color: ${rData.color}; box-shadow: 0 0 10px ${rData.color}44;">
+          <div class="eq-slot" style="border-color: ${rData.color}; box-shadow: 0 0 10px ${rData.color}44; flex:1 1 140px; min-width:140px; max-width:180px; padding:8px;">
             <div style="font-size: 1.5rem;">${item.emoji}</div>
-            <div style="font-size: 0.7rem; color: ${rData.color}; font-weight:bold; text-align:center; margin: 4px 0;">${item.name}</div>
+            <div style="font-size: 0.68rem; color: ${rData.color}; font-weight:bold; text-align:center; margin: 3px 0;">${item.name}</div>
+            <div class="enhance-badge" style="color:${lvColor}; border-color:${lvColor};">+${lv}</div>
+            <div style="font-size:0.6rem; color:var(--muted); text-align:center; margin:4px 0; line-height:1.35; min-height:22px;">
+              ${statParts.join(' · ') || '—'}
+            </div>
+            ${enhanceBtnHtml}
             ${lepasBtn}
           </div>
         `;
       } else {
         html += `
-          <div class="eq-slot" style="border-style: dashed; opacity: 0.5;">
+          <div class="eq-slot" style="border-style: dashed; opacity: 0.5; flex:1 1 140px; min-width:140px; max-width:180px;">
             <div style="font-size: 1.5rem;">${EQUIP_BASES[slot].emoji}</div>
             <div style="font-size: 0.7rem; font-weight:bold; text-align:center; margin: 4px 0;">Kosong</div>
           </div>
         `;
       }
     });
-    
+
     html += `</div><h4 style="margin-top:10px; margin-bottom:10px;">Tas Equipment (Klik untuk pasang)</h4>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
         <label style="flex:1; min-width:130px;">Jenis
@@ -633,7 +781,7 @@ window.openEquipModal = function(uid) {
           </select>
         </label>
       </div>`;
-    
+
     const equippedIds = [];
     Player.data.roster.forEach(r => {
       if (r.equipment) {
@@ -642,27 +790,32 @@ window.openEquipModal = function(uid) {
         });
       }
     });
-    
+
     const availableItems = Player.data.inventory.filter(item => !equippedIds.includes(item.id) && (window.equipTypeFilter === 'all' || item.type === window.equipTypeFilter) && (window.equipRarityFilter === 'all' || String(item.rarity) === String(window.equipRarityFilter)));
-    
+
     if (availableItems.length === 0) {
       html += `<p class="muted small" style="text-align:center;">Tidak ada equipment yang cocok dengan filter ini.</p>`;
     } else {
       html += `<div class="eq-inventory">`;
       availableItems.forEach(item => {
         const rData = EQUIP_RARITIES[item.rarity] || { color: '#fff' };
+        const es = Player.getEnhancedStats(item);
+        const lv = item.enhanceLevel || 0;
+        const lvColor = getEnhanceLvColor(lv);
         let statStr = '';
-        if (item.atk) statStr += `+${item.atk} ATK `;
-        if (item.def) statStr += `+${item.def} DEF `;
-        if (item.hp) statStr += `+${item.hp} HP `;
-        if (item.spd) statStr += `+${item.spd} SPD `;
-        if (item.crit) statStr += `+${item.crit}% CRIT`;
+        if (es.atk) statStr += `+${es.atk} ATK `;
+        if (es.def) statStr += `+${es.def} DEF `;
+        if (es.hp) statStr += `+${es.hp} HP `;
+        if (es.spd) statStr += `+${es.spd} SPD `;
+        if (es.crit) statStr += `+${es.crit}% CRIT`;
+
+        const lvBadge = lv > 0 ? `<span style="color:${lvColor}; font-weight:900; font-size:0.75rem; margin-left:6px;">+${lv}</span>` : '';
 
         html += `
           <div class="eq-item-card" style="border-left: 4px solid ${rData.color};" onclick="Player.equipItem(${uid}, '${item.id}'); openEquipModal(${uid});">
             <div style="font-size:1.5rem;">${item.emoji}</div>
-            <div style="flex:1; margin-left:10px;">
-              <div style="color: ${rData.color}; font-weight:bold; font-size:0.9rem;">${item.name}</div>
+            <div style="flex:1; margin-left:10px; min-width:0;">
+              <div style="color: ${rData.color}; font-weight:bold; font-size:0.9rem;">${item.name}${lvBadge}</div>
               <div style="font-size:0.7rem; color:var(--muted);">${statStr}</div>
             </div>
           </div>
@@ -678,9 +831,37 @@ window.openEquipModal = function(uid) {
   }
 };
 
-// ==========================================
-// STAGE & SKIP
-// ==========================================
+window.enhanceEquipItem = function(itemId, uid) {
+  const item = Player.data.inventory.find(i => i.id === itemId);
+  if (!item) { alert('Equipment tidak ditemukan.'); return; }
+  const lv = item.enhanceLevel || 0;
+  const maxLv = Player.ENHANCE_MAX;
+  if (lv >= maxLv) { alert(`Sudah mencapai batas maksimal +${maxLv}!`); return; }
+
+  const cost = Player.getEnhanceCost(item);
+  const gold = Player.data.gold || 0;
+  if (gold < cost) {
+    alert(`Gold tidak cukup!\n\nButuh: 💰 ${cost.toLocaleString()}\nKamu punya: 💰 ${gold.toLocaleString()}`);
+    return;
+  }
+
+  const ok = confirm(`Enhance ${item.name}?\n\nDari: +${lv}\nKe: +${lv + 1}\n\nBiaya: 💰 ${cost.toLocaleString()} Gold\nSisa gold: 💰 ${(gold - cost).toLocaleString()}`);
+  if (!ok) return;
+
+  const res = Player.enhanceEquipment(itemId);
+  if (!res.ok) { alert(res.message); return; }
+
+  let milestoneMsg = '';
+  if (res.newLevel === 10) milestoneMsg = '\n\n🎉 MILESTONE +10! Bonus +3% CRIT.';
+  else if (res.newLevel === 20) milestoneMsg = '\n\n🎉 MILESTONE +20! Bonus +6% CRIT & +10% CRIT DMG.';
+  else if (res.newLevel === 30) milestoneMsg = '\n\n🌟 MAX LEVEL +30! Bonus +10% CRIT, +25% CRIT DMG, & +20% ke SEMUA stat equipment!';
+
+  if (milestoneMsg) alert(`✅ ${item.name} berhasil di-enhance ke +${res.newLevel}!${milestoneMsg}`);
+
+  openEquipModal(uid);
+  if (typeof window.renderAll === 'function') window.renderAll();
+};
+
 function renderStages() {
   const list = document.getElementById('stageList');
   if (!list) return;
@@ -688,7 +869,6 @@ function renderStages() {
   const skipInfo = getSkipInfo();
   const skipLeft = skipInfo.left;
 
-  // ===== BANNER COUNTER GLOBAL =====
   const counterEl = document.getElementById('skipCounter');
   if (counterEl) {
     if (skipLeft > 0) {
@@ -700,13 +880,11 @@ function renderStages() {
     }
   }
 
-  // ===== PANEL QUICK SKIP =====
   const quickEl = document.getElementById('quickSkip');
   if (quickEl) {
     if (skipLeft > 0 && Player.data.stageProgress > 1) {
       const maxFarm = Player.data.stageProgress;
       const stageOptions = [];
-      // Urutkan dari stage tertinggi ke terendah supaya paling dekat stage progress di atas
       for (let s = maxFarm; s >= 1; s--) {
         const isBoss = s % 10 === 0;
         const isMiniBoss = s % 5 === 0 && !isBoss;
@@ -735,7 +913,6 @@ function renderStages() {
     }
   }
 
-  // ===== DAFTAR STAGE =====
   const cards = [];
   const maxShow = Player.data.stageProgress;
   
@@ -747,7 +924,6 @@ function renderStages() {
     
     let actionHtml = '';
     if (isCompleted) {
-      // Tombol skip per-stage: SELALU "Skip 1x" (jelas hanya 1x untuk stage ini)
       const skipBtn = skipLeft > 0
         ? `<button class="primary" style="flex: 1; background: var(--success); color: #1a1d29;" onclick="skipStage(${i})">⏩ Skip 1x</button>`
         : `<button class="primary" style="flex: 1; background: var(--panel-2); color: var(--muted); cursor: not-allowed;" disabled>🚫 Skip Habis</button>`;
@@ -794,7 +970,6 @@ function renderStages() {
   list.innerHTML = cards.join('');
 }
 
-// Skip 1x untuk stage tertentu (tombol per card)
 window.skipStage = function(stageId) {
   if (!Player.data.team || Player.data.team.length === 0) {
     alert('Tim kamu kosong! Silakan isi tim terlebih dahulu di menu Tim.');
@@ -808,7 +983,6 @@ window.skipStage = function(stageId) {
     return;
   }
 
-  // Konfirmasi stage yang jelas supaya tidak bingung
   if (!confirm(`Skip Stage ${stageId} 1x?\n\nSisa skip setelah ini: ${skipInfo.left - 1}/20\nStage lain TIDAK akan di-skip.`)) return;
 
   Player.data.skip.count++;
@@ -863,7 +1037,6 @@ window.skipStage = function(stageId) {
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
 };
 
-// Quick Skip: pilih stage + jumlah sekaligus (khusus stage yang dipilih saja)
 window.quickSkip = function() {
   const stageEl = document.getElementById('quickSkipStage');
   const countEl = document.getElementById('quickSkipCount');
@@ -957,9 +1130,6 @@ window.quickSkip = function() {
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 5000);
 };
 
-// ==========================================
-// CRAFTING UI
-// ==========================================
 function renderCrafting() {
   const matList = document.getElementById('materialList');
   const potionList = document.getElementById('potionRecipes');

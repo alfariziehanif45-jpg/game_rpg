@@ -1,13 +1,9 @@
-// ==========================================
-// PENALTI KALAH — tidak ada reset progres, hanya kehilangan sebagian item
-// ==========================================
 const DEFEAT_PENALTY = {
-  potionRate: 0.25,      // 25% tiap jenis potion hilang (minimal 1 jika punya)
-  materialRate: 0.25,    // 25% tiap jenis material hilang (minimal 1 jika punya)
-  equipmentChance: 0.20  // 20% kemungkinan kehilangan 1 equipment yang TIDAK sedang dipakai
+  potionRate: 0.25,
+  materialRate: 0.25,
+  equipmentChance: 0.20
 };
 
-// Material yang bisa dipakai untuk membuat potion (bahan utama potion)
 const POTION_MATERIALS = ['herb', 'crystal', 'blood'];
 
 const Battle = {
@@ -25,6 +21,10 @@ const Battle = {
   finisherBonus: 0,
   _finishQTE: null,
   isCreatorEncounter: false,
+  // Boss Rush States
+  isBossRush: false,
+  currentRushBoss: null,
+  potionUsedThisBattle: false,
 
   toggleSpeed() {
     this.speedMultiplier = this.speedMultiplier === 1 ? 2 : (this.speedMultiplier === 2 ? 3 : 1);
@@ -66,9 +66,6 @@ const Battle = {
     if (typeof window.renderAll === 'function') window.renderAll();
   },
 
-  // ==========================================
-  // START BATTLE (dengan cek Creator Encounter)
-  // ==========================================
   start(stageId) {
     Player.data.battleCount = (Player.data.battleCount || 0) + 1;
 
@@ -88,6 +85,7 @@ const Battle = {
 
     this.active = true;
     this.isCreatorEncounter = false;
+    this.isBossRush = false; // Reset
     this.stageId = stageId;
     this.round = 1;
     this.turnIndex = 0;
@@ -112,36 +110,74 @@ const Battle = {
   },
 
   // ==========================================
-  // SKIP BATTLE — selesaikan stage TANPA bertarung
-  // Memberi reward: Gold, EXP, Material (termasuk bahan potion), Equipment
-  // Bisa dipanggil dari tombol "Skip" di UI: Battle.skipBattle(stageId)
+  // START BOSS RUSH
   // ==========================================
-  skipBattle(stageId) {
-    if (this.active) {
-      console.warn('⛔ Tidak bisa skip saat battle sedang berlangsung.');
-      return null;
-    }
+  startBossRush(floor) {
+    this.active = true;
+    this.isCreatorEncounter = false;
+    this.isBossRush = true;
+    this.stageId = 1000 + floor; 
+    this.round = 1;
+    this.turnIndex = 0;
+    this.waitingForInput = false;
+    this.rules = { noHeal: false, noPotion: false, reverse: false };
+    this.noxAdaptationStacks = 0;
+    this.finisherBonus = 0;
+    this._finishQTE = null;
+    this.potionUsedThisBattle = false; 
+    
+    document.getElementById('battleOverlay').classList.remove('hidden');
+    document.getElementById('battleResult').classList.add('hidden');
+    document.getElementById('battleLog').innerHTML = '';
+    
+    this.allies = this._buildAllies();
+    
+    const bossTemplate = BOSS_RUSH_POOL[(floor - 1) % BOSS_RUSH_POOL.length];
+    const powerData = Player.getTeamPower ? Player.getTeamPower() : { average: 1000, avgLevel: 1 };
+    const multiplier = 1 + (floor * 0.05); 
+    
+    this.currentRushBoss = {
+      id: 'rush_boss',
+      name: bossTemplate.name,
+      emoji: bossTemplate.emoji,
+      isEnemy: true, isBoss: true, isRush: true, phase: 1,
+      element: bossTemplate.element,
+      hp: Math.floor(powerData.average * 50 * multiplier), 
+      maxHp: Math.floor(powerData.average * 50 * multiplier),
+      atk: Math.floor(powerData.average * 0.2 * multiplier),
+      def: Math.floor(powerData.average * 0.1 * multiplier),
+      spd: Math.floor(15 + (floor * 0.5)),
+      crit: 20, critDmg: 100, evo: 1, cooldown: 0,
+      buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false },
+      riddleData: bossTemplate
+    };
 
+    this.enemies = [this.currentRushBoss];
+    this.turnQueue = [...this.allies, ...this.enemies].sort((a, b) => this.getEffectiveSpd(b) - this.getEffectiveSpd(a));
+    
+    this.renderPotionBar();
+    this.log(`👑 <b style="color:#ffb547; font-size:1.2rem;">BOSS RUSH - FLOOR ${floor}</b>`);
+    this.log(`<i>"${bossTemplate.riddle}"</i>`);
+    this.render();
+    this.processTurn();
+  },
+
+  skipBattle(stageId) {
+    if (this.active) return null;
     if (!Player || !Player.data) return null;
 
-    // Hitung sebagai battle yang diselesaikan (agar progres & counter konsisten)
     Player.data.battleCount = (Player.data.battleCount || 0) + 1;
-
     const multiplier = stageId * 1.5;
     const expReward = Math.floor(50 * multiplier);
     const goldReward = Math.floor(100 * multiplier);
-
     Player.addGold(goldReward);
 
-    // EXP untuk seluruh tim
     Player.getTeamUnits().forEach(u => {
       const inst = Player.getInstance(u.uid);
       if (inst) Player.addExp(inst, expReward);
     });
 
     const rewards = { materials: [], equipment: null, matDrop: null };
-
-    // ===== Material Drop (termasuk bahan potion) =====
     const matDrop = this.rollMaterialDrop(stageId);
     if (matDrop) {
       Player.addMaterial(matDrop.matId, matDrop.count);
@@ -149,26 +185,17 @@ const Battle = {
       rewards.matDrop = matDrop;
     }
 
-    // ===== Equipment Drop =====
     const eqDrop = this.rollEquipmentDrop(stageId);
     if (eqDrop) {
       Player.addEquipment(eqDrop);
       rewards.equipment = eqDrop;
     }
 
-    // ===== Selesaikan stage =====
     Player.completeStage(stageId);
     Player.save();
-
     if (typeof window.renderAll === 'function') window.renderAll();
 
-    return {
-      stageId,
-      goldReward,
-      expReward,
-      rewards,
-      nextStage: stageId + 1
-    };
+    return { stageId, goldReward, expReward, rewards, nextStage: stageId + 1 };
   },
 
   _buildAllies() {
@@ -190,12 +217,10 @@ const Battle = {
     });
   },
 
-  // ==========================================
-  // CREATOR ENCOUNTER
-  // ==========================================
   startCreatorEncounter(stageId) {
     this.active = true;
     this.isCreatorEncounter = true;
+    this.isBossRush = false;
     this.stageId = stageId;
     this.round = 1;
     this.turnIndex = 0;
@@ -212,21 +237,14 @@ const Battle = {
     
     this.allies = this._buildAllies();
     this.enemies = [{
-      id: 'creator',
-      name: CREATOR_ENCOUNTER.name,
-      emoji: CREATOR_ENCOUNTER.emoji,
-      isEnemy: true, isCreator: true, isBoss: true,
-      phase: '???',
-      element: 'none',
-      hp: Infinity, maxHp: Infinity,
-      atk: Infinity, def: Infinity, spd: 1,
-      crit: 0, critDmg: 0, evo: 1, cooldown: 0,
-      buffs: {}
+      id: 'creator', name: CREATOR_ENCOUNTER.name, emoji: CREATOR_ENCOUNTER.emoji,
+      isEnemy: true, isCreator: true, isBoss: true, phase: '???', element: 'none',
+      hp: Infinity, maxHp: Infinity, atk: Infinity, def: Infinity, spd: 1,
+      crit: 0, critDmg: 0, evo: 1, cooldown: 0, buffs: {}
     }];
     this.turnQueue = [...this.allies];
     
     this.render();
-    
     this.log(`<span style="color:#fff;font-weight:900;font-size:1.1rem;text-shadow:0 0 10px #fff;">⚡ WAKTU MEMBEKU...</span>`);
     this.log(`<span style="color:#8a90a8;font-style:italic;">Langit terbelah. Sebuah entitas tak dikenal muncul dari celah dimensi...</span>`);
     
@@ -254,12 +272,8 @@ const Battle = {
           <p style="color:#8a90a8; font-size:0.8rem; margin-top:4px;">Tidak ada petunjuk. Kamu harus memilih dengan hatimu.</p>
         </div>
         <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
-          <button onclick="Battle.creatorChoose('blue')" style="background: linear-gradient(135deg,#4aa8ff,#2563eb); color:#fff; padding:24px 48px; font-size:1.2rem; font-weight:900; border:2px solid #4aa8ff; border-radius:16px; cursor:pointer; box-shadow:0 0 30px #4aa8ff; min-width:140px;">
-            🔵 BIRU
-          </button>
-          <button onclick="Battle.creatorChoose('red')" style="background: linear-gradient(135deg,#ff4d5e,#b01c2b); color:#fff; padding:24px 48px; font-size:1.2rem; font-weight:900; border:2px solid #ff4d5e; border-radius:16px; cursor:pointer; box-shadow:0 0 30px #ff4d5e; min-width:140px;">
-            🔴 MERAH
-          </button>
+          <button onclick="Battle.creatorChoose('blue')" style="background: linear-gradient(135deg,#4aa8ff,#2563eb); color:#fff; padding:24px 48px; font-size:1.2rem; font-weight:900; border:2px solid #4aa8ff; border-radius:16px; cursor:pointer; box-shadow:0 0 30px #4aa8ff; min-width:140px;">🔵 BIRU</button>
+          <button onclick="Battle.creatorChoose('red')" style="background: linear-gradient(135deg,#ff4d5e,#b01c2b); color:#fff; padding:24px 48px; font-size:1.2rem; font-weight:900; border:2px solid #ff4d5e; border-radius:16px; cursor:pointer; box-shadow:0 0 30px #ff4d5e; min-width:140px;">🔴 MERAH</button>
         </div>
       </div>
     `;
@@ -327,21 +341,16 @@ const Battle = {
         <h2 style="color:#ff4d5e; font-size:2rem; font-weight:900; margin-bottom:12px; letter-spacing:3px; text-shadow:0 0 20px #ff4d5e;">MERAH</h2>
         <p style="color:#fff; font-size:1.05rem; margin-bottom:10px; font-style:italic;">"Pilihan yang berani... tapi salah."</p>
         <p style="color:#8a90a8; font-size:0.9rem; margin-bottom:20px;">Cahaya merah menyala. Sebuah retakan waktu terbuka...</p>
-        
         <div style="background:rgba(255,77,94,0.1); border:2px solid #ff4d5e; border-radius:12px; padding:16px; margin:16px 0;">
           <div style="font-size:3rem; margin:10px 0;">⚔️</div>
           <p style="color:#ff4d5e; font-weight:900; font-size:1.1rem; margin-bottom:8px; letter-spacing:1px;">NOX DARI MASA DEPAN</p>
           <p style="color:#8a90a8; font-size:0.85rem; margin-bottom:8px; font-style:italic;">"Kau gagal di masa lalu. Aku akan mengakhiri ini..."</p>
           <p style="color:#fff; font-weight:700; font-size:0.9rem;">"SELAMAT TINGGAL, SEMUT KECIL."</p>
         </div>
-        
         <h3 style="color:#ff4d5e; font-size:1.8rem; font-weight:900; margin:20px 0; text-shadow:0 0 15px #ff4d5e; letter-spacing:2px;">💀 GAME OVER 💀</h3>
         <p style="color:#8a90a8; font-size:0.85rem; margin-bottom:8px;">Perjalananmu berakhir di sini.</p>
         <p style="color:#ff4d5e; font-size:0.85rem; font-weight:800; margin-bottom:20px;">⚠️ Semua progres akan di-reset permanen.</p>
-        
-        <button onclick="Battle.confirmGameOver()" style="background:linear-gradient(135deg,#ff4d5e,#b01c2b); color:#fff; padding:18px 40px; font-size:1.05rem; font-weight:900; border:none; border-radius:12px; cursor:pointer; box-shadow:0 0 30px #ff4d5e; letter-spacing:2px;">
-          AKHIRI SEGALANYA
-        </button>
+        <button onclick="Battle.confirmGameOver()" style="background:linear-gradient(135deg,#ff4d5e,#b01c2b); color:#fff; padding:18px 40px; font-size:1.05rem; font-weight:900; border:none; border-radius:12px; cursor:pointer; box-shadow:0 0 30px #ff4d5e; letter-spacing:2px;">AKHIRI SEGALANYA</button>
       </div>
     `;
     modal.classList.remove('hidden');
@@ -353,9 +362,6 @@ const Battle = {
     location.reload();
   },
 
-  // ==========================================
-  // DOUBLE OR NOTHING — Gamble Skill
-  // ==========================================
   gambleDoubleOrNothing(actor) {
     if (!this.waitingForInput || !this.active) return;
     if (this.isCreatorEncounter) return;
@@ -373,44 +379,28 @@ const Battle = {
     
     setTimeout(() => {
       const win = Math.random() < 0.5;
-      
       if (win) {
         this.log(`🎲 <b style="color:#ffb547; font-size:1.2rem; text-shadow:0 0 10px #ffb547;">✨ HEADS! DAMAGE ×3!</b>`);
-        
         let targetDef = target.def;
-        if (target.buffs && target.buffs.def > 0 && target.buffs.defAmount) {
-          targetDef = Math.floor(targetDef * (1 + target.buffs.defAmount));
-        }
-        if (target.debuffs && target.debuffs.defDown) {
-          targetDef = Math.floor(targetDef * (1 - target.debuffs.defDown.amount));
-        }
+        if (target.buffs && target.buffs.def > 0 && target.buffs.defAmount) targetDef = Math.floor(targetDef * (1 + target.buffs.defAmount));
+        if (target.debuffs && target.debuffs.defDown) targetDef = Math.floor(targetDef * (1 - target.debuffs.defDown.amount));
         const mitigation = targetDef / (targetDef + 100);
         let dmg = Math.max(1, Math.floor(actor.atk * 3.0 * (1 - mitigation)));
         const elMult = getElementMultiplier(actor.element, target.element);
         dmg = Math.floor(dmg * elMult);
         
-        if (target.debuffs && target.debuffs.damageTaken) {
-          dmg = Math.floor(dmg * (1 + target.debuffs.damageTaken.amount));
-        }
-        if (actor.buffs && actor.buffs.teamAtk > 0) {
-          dmg = Math.floor(dmg * (1 + (actor.buffs.teamAtkAmount || 0.5)));
-        }
+        if (target.debuffs && target.debuffs.damageTaken) dmg = Math.floor(dmg * (1 + target.debuffs.damageTaken.amount));
+        if (actor.buffs && actor.buffs.teamAtk > 0) dmg = Math.floor(dmg * (1 + (actor.buffs.teamAtkAmount || 0.5)));
         
         let critChance = actor.crit || 0;
         let critDmgMult = 1.5 + ((actor.critDmg || 0) / 100);
         let isCrit = false;
-        if (Math.random() * 100 < critChance) {
-          dmg = Math.floor(dmg * critDmgMult);
-          isCrit = true;
-        }
+        if (Math.random() * 100 < critChance) { dmg = Math.floor(dmg * critDmgMult); isCrit = true; }
         
         target.hp = Math.max(0, target.hp - dmg);
         
-        if (isCrit) {
-          this.log(`<span style="color:#ffb547; font-weight:bold; font-size:1.1rem;">💥 CRITICAL GAMBLE! ${target.name} menerima ${dmg} DMG!</span>`);
-        } else {
-          this.log(`<b style="color:#ffb547; font-size:1rem;">💥 GAMBLE MENANG! ${target.name} menerima ${dmg} DMG!</b>`);
-        }
+        if (isCrit) this.log(`<span style="color:#ffb547; font-weight:bold; font-size:1.1rem;">💥 CRITICAL GAMBLE! ${target.name} menerima ${dmg} DMG!</span>`);
+        else this.log(`<b style="color:#ffb547; font-size:1rem;">💥 GAMBLE MENANG! ${target.name} menerima ${dmg} DMG!</b>`);
         
         if (target.hp === 0) this.log(`💀 ${target.name} tumbang!`);
         if (target.isBoss && target.hp > 0) this.checkBossPhase(target);
@@ -419,24 +409,16 @@ const Battle = {
         if (!actor.skillCooldowns) actor.skillCooldowns = {};
         const charData = CHARACTERS[actor.charId];
         if (charData) {
-          charData.skills.forEach(skillId => {
-            actor.skillCooldowns[skillId] = (actor.skillCooldowns[skillId] || 0) + 3;
-          });
+          charData.skills.forEach(skillId => { actor.skillCooldowns[skillId] = (actor.skillCooldowns[skillId] || 0) + 3; });
         }
-        if (actor.role === 'Support') {
-          actor.skillCooldowns['support_inspire'] = (actor.skillCooldowns['support_inspire'] || 0) + 3;
-        }
+        if (actor.role === 'Support') actor.skillCooldowns['support_inspire'] = (actor.skillCooldowns['support_inspire'] || 0) + 3;
         this.log(`<span style="color:#8a90a8;">Keberuntungan berpaling... skill terkunci.</span>`);
       }
-      
       this.render();
       setTimeout(() => this.nextTurn(), 1000);
     }, 800);
   },
 
-  // ==========================================
-  // SKIP GILIRAN — pass turn ke karakter berikutnya
-  // ==========================================
   skipTurn(actor) {
     if (!this.waitingForInput || !this.active) return;
     if (this.isCreatorEncounter) return;
@@ -446,7 +428,6 @@ const Battle = {
     this.waitingForInput = false;
     document.getElementById('actionBar').innerHTML = '';
 
-    // CD skill tetap berkurang 1 (seimbang dengan aksi biasa)
     if (actor.skillCooldowns) {
       Object.keys(actor.skillCooldowns).forEach(s => {
         if (actor.skillCooldowns[s] > 0) actor.skillCooldowns[s]--;
@@ -455,70 +436,55 @@ const Battle = {
 
     this.log(`<span style="color:#8a90a8;">⏭️ ${actor.name} melewati gilirannya.</span>`);
     this.render();
-
     setTimeout(() => this.nextTurn(), 400 / this.speedMultiplier);
   },
 
-  // ==========================================
-  // GENERATE ENEMIES
-  // ==========================================
   generateEnemies(stageId) {
     const isBoss = stageId % 10 === 0;
     const isMiniBoss = stageId % 5 === 0 && !isBoss;
-    
+    const powerData = Player.getTeamPower ? Player.getTeamPower() : { average: 1000, avgLevel: 1 };
+    const pPower = powerData.average;
+    const pLevel = powerData.avgLevel;
+    const stageTier = Math.floor(stageId / 10); 
+    const difficultyMultiplier = 1 + (stageTier * 0.15);
+
     if (isBoss || isMiniBoss) {
       const template = isBoss ? BOSSES.boss : BOSSES.miniboss;
-      const lateBands = Math.max(0, Math.floor((stageId - 70) / 10));
-      const partyLevels = (Player.data.roster || []).filter(r => Player.data.team.includes(r.uid)).map(r => r.level || 1);
-      const avgLevel = partyLevels.length ? partyLevels.reduce((a,b)=>a+b,0) / partyLevels.length : 1;
-      const levelScale = 1 + Math.max(0, avgLevel - 1) * 0.10;
-      const hpScale = (stageId < 70
-        ? 0.75 + (stageId * 0.025)
-        : (1.95 + ((stageId - 70) * 0.018)) * Math.pow(1.13, lateBands)) * levelScale;
-      const atkScale = stageId < 70
-        ? 0.45 + (stageId * 0.009)
-        : (1.08 + ((stageId - 70) * 0.009)) * Math.pow(1.10, lateBands);
-      const defScale = stageId < 70
-        ? 0.50 + (stageId * 0.0075)
-        : (1.025 + ((stageId - 70) * 0.0075)) * Math.pow(1.08, lateBands);
-      
+      let baseHpMultiplier = isBoss ? 35 : 15;
+      if (stageId < 20) baseHpMultiplier *= 0.5; 
+      let bossHp = Math.floor(pPower * baseHpMultiplier * difficultyMultiplier);
+      let bossAtk = Math.floor((pPower * 0.15) * difficultyMultiplier);
+      bossAtk = Math.max(bossAtk, Math.floor(pLevel * 10)); 
+      let bossDef = Math.floor((pPower * 0.05) * difficultyMultiplier);
+      let bossSpd = Math.floor(10 + (pLevel * 0.5) + (isBoss ? 0 : 5));
+
       const boss = {
         id: `boss_${Date.now()}`, name: template.name, emoji: template.emoji, isEnemy: true, isBoss: true, phase: 1,
-        element: template.element || 'dark',
-        hp: Math.floor(template.baseHp * hpScale), maxHp: Math.floor(template.baseHp * hpScale),
-        atk: Math.floor(template.baseAtk * atkScale), def: Math.floor(template.baseDef * defScale),
-        spd: template.baseSpd, crit: 0, critDmg: 0, evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
+        element: template.element || 'dark', hp: bossHp, maxHp: bossHp, atk: bossAtk, def: bossDef, spd: bossSpd, crit: 15, critDmg: 50,
+        evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
       };
       
       const minionCount = isBoss ? 2 : 1;
       const poolKeys = Object.keys(MONSTERS);
       for (let i = 0; i < minionCount; i++) {
         const t = MONSTERS[poolKeys[Math.floor(Math.random() * poolKeys.length)]];
-        boss.hp += Math.floor(t.hp * hpScale * 0.5);
+        boss.hp += Math.floor(bossHp * 0.10);
       }
       boss.maxHp = boss.hp; 
-      
-      this.log(`⚠️ <b style="color:var(--danger)">BOSS MUNCUL!</b> ${boss.name} siap bertarung!`);
+      this.log(`⚠️ <b style="color:var(--danger)">${isBoss ? 'BOSS' : 'MINI-BOSS'} MUNCUL!</b> ${boss.name} (Tier ${stageTier || 1}) siap bertarung!`);
       return [boss];
     } else {
-      const count = Math.min(7, Math.ceil(stageId / 10));
-      const loopMultiplier = 1 + Math.floor((stageId - 1) / 5) * 0.2;
-      const hpScale = (1 + (stageId * 0.25)) * loopMultiplier;
-      const atkScale = (1 + (stageId * 0.1)) * loopMultiplier; 
-      const defScale = (1 + (stageId * 0.08)) * loopMultiplier;
-      
-      const poolKeys = Object.keys(MONSTERS);
+      const count = Math.min(7, Math.ceil(stageId / 10) + 1);
       const enemies = [];
-
+      const poolKeys = Object.keys(MONSTERS);
       for (let i = 0; i < count; i++) {
         const template = MONSTERS[poolKeys[Math.floor(Math.random() * poolKeys.length)]];
+        const mobHp = Math.floor((pPower * 2.5) * difficultyMultiplier);
+        const mobAtk = Math.floor((pPower * 0.05) * difficultyMultiplier);
         enemies.push({
-          id: `e_${i}`, name: template.name, emoji: template.emoji, isEnemy: true, isBoss: false,
-          element: template.element || 'none',
-          hp: Math.floor(template.hp * hpScale), maxHp: Math.floor(template.hp * hpScale),
-          atk: Math.floor(template.atk * atkScale), def: Math.floor(template.def * defScale),
-          spd: Math.floor(template.spd * (1 + stageId * 0.02)),
-          crit: 0, critDmg: 0, evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
+          id: `e_${i}_${Date.now()}`, name: template.name, emoji: template.emoji, isEnemy: true, isBoss: false,
+          element: template.element || 'none', hp: mobHp, maxHp: mobHp, atk: Math.max(10, mobAtk), def: Math.floor((pPower * 0.02) * difficultyMultiplier),
+          spd: Math.floor(10 + (pLevel * 0.4)), crit: 5, critDmg: 0, evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
         });
       }
       return enemies;
@@ -529,17 +495,14 @@ const Battle = {
     return new Promise((resolve) => {
       const container = document.getElementById('qte-container');
       const circle = document.getElementById('qte-circle');
-      
       if (!container || !circle) { resolve(false); return; }
       container.classList.remove('hidden');
       circle.style.animation = 'none';
-
       const duration = Math.max(900, 1800 / Math.max(1, this.speedMultiplier || 1));
       circle.style.setProperty('--qte-duration', `${duration}ms`);
       requestAnimationFrame(() => {
         circle.style.animation = `qtePulse ${duration}ms ease-in-out infinite alternate`;
       });
-
       let resolved = false;
       const finish = (success) => {
         if (resolved) return;
@@ -562,14 +525,11 @@ const Battle = {
   processTurn() {
     if (!this.active) return;
     if (this.checkEnd()) return;
-
     let actor = this.turnQueue[this.turnIndex];
     if (!actor) { this.nextTurn(); return; }
     if (actor.hp <= 0) { this.nextTurn(); return; }
     if (actor.isCreator) { this.nextTurn(); return; }
-
     this.render();
-
     if (actor.isEnemy) {
       document.getElementById('actionBar').innerHTML = `<div class="hint">${actor.isBoss ? 'Boss' : 'Musuh'} sedang menyerang...</div>`;
       this.enemyAction(actor);
@@ -585,14 +545,11 @@ const Battle = {
     if (this.turnIndex >= this.turnQueue.length) {
       this.turnIndex = 0;
       this.round++;
-
       const allUnits = [...this.allies, ...this.enemies];
       allUnits.forEach(u => {
         if (u.cooldown > 0) u.cooldown--;
         if (u.skillCooldowns) {
-          for (let s in u.skillCooldowns) {
-            if (u.skillCooldowns[s] > 0) u.skillCooldowns[s]--;
-          }
+          for (let s in u.skillCooldowns) { if (u.skillCooldowns[s] > 0) u.skillCooldowns[s]--; }
         }
         if (u.buffs) {
           const timed = ['atk','def','spd','supportAtk','supportCrit','supportCritDmg','teamAtk','teamCritDmg','teamDef','teamSpd'];
@@ -613,7 +570,6 @@ const Battle = {
           });
         }
       });
-
       this.turnQueue = [...this.allies, ...this.enemies].sort((a, b) => this.getEffectiveSpd(b) - this.getEffectiveSpd(a));
     }
     this.processTurn();
@@ -624,12 +580,10 @@ const Battle = {
     this.waitingForInput = false;
     document.getElementById('actionBar').innerHTML = '';
 
-    // ===== CREATOR ENCOUNTER: serangan tidak berpengaruh =====
     if (this.isCreatorEncounter || this.enemies.some(e => e.isCreator)) {
       const baseSkill = SKILLS[skillId];
       const skillName = baseSkill ? baseSkill.name : 'serangan';
       this.log(`<span class="eff-good">${actor.name}</span> menggunakan <b>${skillName}</b>...`);
-      
       setTimeout(() => {
         this.log(`<span style="color:#8a90a8;">Serangan itu... tidak menyentuh Creator sama sekali. Seperti menembus ruang kosong.</span>`);
         this.log(`<b style="color:#fff;font-style:italic;">"${CREATOR_ENCOUNTER.dialogues.afterAttack}"</b>`);
@@ -653,7 +607,6 @@ const Battle = {
     let cdReduction = 0;
     let buffMultiplier = 1;
     const relic = Player.getRelicBonuses();
-    
     if (relic) {
       const rId = Player.data.equippedRelic;
       if (rId === 'relic_sapphire') cdReduction = 1;
@@ -669,7 +622,6 @@ const Battle = {
 
     const aliveEnemies = this.enemies.filter(e => e.hp > 0);
     const aliveAllies = this.allies.filter(a => a.hp > 0);
-
     let target = null;
     if (skill.target === 'enemy' && aliveEnemies.length > 0) {
       target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
@@ -680,7 +632,6 @@ const Battle = {
     this.log(`<span class="eff-good">${actor.name}</span> menggunakan <b>${skill.name}</b>!`);
 
     const atkElement = (skill.element && skill.element !== 'none') ? skill.element : (actor.element || 'none');
-
     let actorAtk = actor.atk;
     if (actor.buffs && actor.buffs.atk > 0 && actor.buffs.atkAmount) {
       actorAtk = Math.floor(actorAtk * (1 + actor.buffs.atkAmount));
@@ -766,9 +717,7 @@ const Battle = {
     else if (skill.type === 'support') {
       aliveAllies.forEach(a => {
         if (['DPS', 'Hybrid', 'True Blade'].includes(a.role)) {
-          a.buffs.supportAtk = 3;
-          a.buffs.supportCrit = 3;
-          a.buffs.supportCritDmg = 3;
+          a.buffs.supportAtk = 3; a.buffs.supportCrit = 3; a.buffs.supportCritDmg = 3;
           a.buffs.supportStacks = Math.min(10, (a.buffs.supportStacks || 0) + 1);
           this.log(`✨ <span style="color:var(--accent-2)">${a.name} mendapat Inspirasi (${a.buffs.supportStacks} stack, +${Math.round(60 * Math.min(5, a.buffs.supportStacks))}% ATK)!</span>`);
         }
@@ -776,13 +725,26 @@ const Battle = {
     }
     else if (skill.type === 'damage') {
       const processDamage = (targetUnit) => {
+        // ==========================================
+        // MEKANIK BOSS RUSH (TEKA-TEKI)
+        // ==========================================
+        if (targetUnit.isRush && targetUnit.riddleData) {
+          const isConditionMet = targetUnit.riddleData.condition(this.allies, targetUnit);
+          if (!isConditionMet) {
+            const healAmount = Math.floor(targetUnit.maxHp * 0.05);
+            targetUnit.hp = Math.min(targetUnit.maxHp, targetUnit.hp + healAmount);
+            this.log(`<span style="color:#ff4d5e; font-weight:bold;">🚫 ${targetUnit.riddleData.failMsg}</span>`);
+            this.log(`Boss memulihkan ${healAmount} HP!`);
+            this.render();
+            return 0; 
+          }
+        }
+        // ==========================================
+
         let targetDef = targetUnit.def;
-        if (targetUnit.buffs && targetUnit.buffs.def > 0 && targetUnit.buffs.defAmount) {
-          targetDef = Math.floor(targetDef * (1 + targetUnit.buffs.defAmount));
-        }
-        if (targetUnit.debuffs && targetUnit.debuffs.defDown) {
-          targetDef = Math.floor(targetDef * (1 - targetUnit.debuffs.defDown.amount));
-        }
+        if (targetUnit.buffs && targetUnit.buffs.def > 0 && targetUnit.buffs.defAmount) targetDef = Math.floor(targetDef * (1 + targetUnit.buffs.defAmount));
+        if (targetUnit.debuffs && targetUnit.debuffs.defDown) targetDef = Math.floor(targetDef * (1 - targetUnit.debuffs.defDown.amount));
+        
         const mitigation = targetDef / (targetDef + 100);
         let dmg = Math.max(1, Math.floor((actorAtk * skill.power) * (1 - mitigation)));
         const elMult = getElementMultiplier(atkElement, targetUnit.element);
@@ -800,38 +762,26 @@ const Battle = {
 
         let critChance = actor.crit || 0;
         let critDmgMult = 1.5 + ((actor.critDmg || 0) / 100); 
-        
         if (actor.buffs && actor.buffs.supportCrit > 0) { critChance += 60; critDmgMult += 0.6; }
         if (actor.buffs && actor.buffs.teamCritDmg > 0) critDmgMult += (actor.buffs.teamCritDmgAmount || 0.60);
 
         let isCrit = false;
-        if (Math.random() * 100 < critChance) {
-          dmg = Math.floor(dmg * critDmgMult); 
-          isCrit = true;
-        }
+        if (Math.random() * 100 < critChance) { dmg = Math.floor(dmg * critDmgMult); isCrit = true; }
 
         targetUnit.hp = Math.max(0, targetUnit.hp - dmg);
         
         const elNote = elMult > 1.05 ? ' <span style="color:#ffb547">[Super Effective]</span>' : elMult < 0.95 ? ' <span style="color:var(--muted)">[Not Effective]</span>' : '';
-        if (isCrit) {
-          this.log(`<span style="color:#ffb547; font-weight:bold;">💥 CRITICAL! ${targetUnit.name} menerima ${dmg} DMG.${elNote}</span>`);
-        } else {
-          this.log(`💥 ${targetUnit.name} menerima ${dmg} DMG.${elNote}`);
-        }
+        if (isCrit) this.log(`<span style="color:#ffb547; font-weight:bold;">💥 CRITICAL! ${targetUnit.name} menerima ${dmg} DMG.${elNote}</span>`);
+        else this.log(`💥 ${targetUnit.name} menerima ${dmg} DMG.${elNote}`);
         
         if (targetUnit.hp === 0) this.log(`💀 ${targetUnit.name} tumbang!`);
-        
         if (targetUnit.isBoss && targetUnit.hp > 0) this.checkBossPhase(targetUnit);
-        
         return dmg;
       };
 
       let totalDamageDealt = 0;
-      if (skill.aoe) {
-        aliveEnemies.forEach(e => { totalDamageDealt += processDamage(e); });
-      } else if (target) {
-        totalDamageDealt += processDamage(target);
-      }
+      if (skill.aoe) aliveEnemies.forEach(e => { totalDamageDealt += processDamage(e); });
+      else if (target) totalDamageDealt += processDamage(target);
       
       if (skillId === 'drain_strike' && totalDamageDealt > 0) {
         let heal = Math.floor(totalDamageDealt * 0.5);
@@ -846,7 +796,6 @@ const Battle = {
         setTimeout(() => this.nextTurn(), 1000);
         return;
       }
-      
       if (skill.aoe) {
         aliveAllies.forEach(a => {
           let heal = Math.floor(actor.atk * skill.power * buffMultiplier);
@@ -863,7 +812,6 @@ const Battle = {
       const buffTarget = (skill.target === 'ally' && target) ? target : actor;
       if (!buffTarget.buffs) buffTarget.buffs = { atk: 0, def: 0, spd: 0, shield: 0, taunt: false };
       const dur = skill.turns || 3;
-
       if (skill.stat === 'taunt') {
         buffTarget.buffs.taunt = true;
         buffTarget.buffs.def = Math.max(buffTarget.buffs.def || 0, 2);
@@ -891,8 +839,7 @@ const Battle = {
       };
       const t = templates[skill.minion] || { name: 'Minion', emoji: '👾', hp: 200, atk: 30, def: 10, spd: 10, element: 'none' };
       const minion = {
-        id: `m_${Date.now()}`, name: t.name, emoji: t.emoji, isEnemy: false,
-        element: t.element,
+        id: `m_${Date.now()}`, name: t.name, emoji: t.emoji, isEnemy: false, element: t.element,
         hp: t.hp, maxHp: t.hp, atk: t.atk, def: t.def, spd: t.spd, crit: 0, critDmg: 0,
         role: 'Minion', evo: 1, cooldown: 0, skillCooldowns: {}, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
       };
@@ -907,42 +854,43 @@ const Battle = {
 
   checkBossPhase(boss) {
     const hpPercent = boss.hp / boss.maxHp;
-    const isMainBoss = boss.name === 'System Administrator';
-
-    if (boss.phase === 1 && hpPercent <= (isMainBoss ? (this.stageId >= 70 ? 0.7 : 0.5) : 0.5)) {
+    if (boss.phase === 1 && hpPercent <= 0.5) {
       boss.phase = 2;
-      const phaseAtkMultiplier = this.stageId >= 70 ? 1.6 : 1.25;
-      boss.atk = Math.floor(boss.atk * phaseAtkMultiplier);
-      boss.def = Math.floor(boss.def * (this.stageId >= 70 ? 1.2 : 1.1));
-      this.log(`<span style="color:var(--accent-2); font-weight:bold; font-size:1.1rem;">⚠️ BOSS BERADAPTASI! Memasuki Fase 2! (ATK meningkat)</span>`);
+      boss.atk = Math.floor(boss.atk * 1.25);
+      boss.spd = Math.floor(boss.spd * 1.15);
+      this.log(`<span style="color:#ffb547; font-weight:900; font-size:1.1rem;">⚠️ BOSS MENGAMUK! Memasuki Fase 2! (ATK & SPD Meningkat)</span>`);
       
-      if (isMainBoss && this.stageId >= 70) {
+      if (boss.element === 'dark' || boss.element === 'none') {
         this.rules.noHeal = true;
-        this.log(`<span style="color:var(--danger)">🚫 SISTEM DIMANIPULASI: Semua penyembuhan (Heal) diblokir!</span>`);
-      } else if (!isMainBoss) {
+        this.log(`<span style="color:var(--danger)">🚫 KEGELAPAN MENYEBAR: Semua penyembuhan (Heal) diblokir!</span>`);
+      } else if (boss.element === 'fire') {
+        boss.buffs.atkAmount = 0.3;
+        boss.buffs.atk = 99;
+        this.log(`<span style="color:var(--danger)">🔥 AMUKAN API: Boss mendapat +30% ATK tambahan!</span>`);
+      } else {
         const poolKeys = Object.keys(MONSTERS);
         const t = MONSTERS[poolKeys[Math.floor(Math.random() * poolKeys.length)]];
         const minion = {
-          id: `m_boss_${Date.now()}`, name: t.name, emoji: t.emoji, isEnemy: true,
-          element: t.element || 'none',
-          hp: t.hp * 3, maxHp: t.hp * 3, atk: t.atk * 2, def: t.def, spd: t.spd,
+          id: `m_boss_${Date.now()}`, name: `Elite ${t.name}`, emoji: t.emoji, isEnemy: true, element: t.element || 'none',
+          hp: Math.floor(boss.maxHp * 0.1), maxHp: Math.floor(boss.maxHp * 0.1),
+          atk: Math.floor(boss.atk * 0.6), def: boss.def, spd: boss.spd + 5,
           crit: 0, critDmg: 0, evo: 1, cooldown: 0, buffs: { atk: 0, def: 0, spd: 0, shield: 0, taunt: false }
         };
         this.enemies.push(minion);
         this.turnQueue.push(minion);
-        this.log(`<span style="color:var(--danger)">⚠️ Mini-Boss memanggil pasukan tambahan!</span>`);
+        this.log(`<span style="color:var(--danger)">⚠️ Boss memanggil pasukan elit!</span>`);
       }
     }
 
-    if (isMainBoss && this.stageId >= 70 && boss.phase === 2 && hpPercent <= 0.4) {
+    if (boss.phase === 2 && hpPercent <= 0.2) {
       boss.phase = 3;
-      boss.atk = Math.floor(boss.atk * 1.8); 
-      boss.spd = Math.floor(boss.spd * 1.25);
-      this.log(`<span style="color:var(--danger); font-weight:bold; font-size:1.1rem;">🔥 SISTEM KRITIS! BOSS MEMASUKI FASE 3! (MODE AMUK AKTIF)</span>`);
-      
+      boss.atk = Math.floor(boss.atk * 1.5);
+      boss.spd = Math.floor(boss.spd * 1.2);
+      const shieldVal = Math.floor(boss.maxHp * 0.2);
+      boss.buffs.shield = shieldVal;
+      this.log(`<span style="color:#ff4d5e; font-weight:900; font-size:1.2rem; text-shadow:0 0 10px #ff4d5e;">🔥 BOSS KRITIS! MEMASUKI FASE 3! (MODE AMUK & SHIELD)</span>`);
+      this.log(`<span style="color:var(--danger)">🚫 Potion tidak bisa digunakan!</span>`);
       this.rules.noPotion = true;
-      this.log(`<span style="color:var(--danger)">🚫 SISTEM DIMANIPULASI: Potion tidak bisa digunakan!</span>`);
-      
       this.renderPotionBar();
     }
   },
@@ -955,9 +903,8 @@ const Battle = {
       target = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
     } else {
       const tauntTarget = this.allies.find(a => a.hp > 0 && a.buffs && a.buffs.taunt);
-      if (tauntTarget) {
-        target = tauntTarget;
-      } else {
+      if (tauntTarget) target = tauntTarget;
+      else {
         const aliveAllies = this.allies.filter(a => a.hp > 0);
         if (aliveAllies.length === 0) return;
         target = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
@@ -965,7 +912,6 @@ const Battle = {
     }
 
     if (!target) return;
-
     let damageBase = actor.atk;
     if (actor.buffs && actor.buffs.atk > 0) damageBase = Math.floor(damageBase * 1.5);
     if (actor.debuffs && actor.debuffs.atkDown) damageBase = Math.floor(damageBase * (1 - actor.debuffs.atkDown.amount));
@@ -977,7 +923,6 @@ const Battle = {
       this.log(`<span style="color:var(--accent-2); font-weight:bold;">⚠️ Serangan masuk! Klik lingkaran untuk menghindar!</span>`);
       const dodged = await this.showQTE();
       if (!this.active) return;
-      
       if (dodged) {
         this.log(`<span class="eff-good">✨ DODGE BERHASIL! ${target.name} menghindari serangan!</span>`);
         this.render();
@@ -1012,6 +957,13 @@ const Battle = {
             if (a.buffs.shield >= damage) { a.buffs.shield -= damage; damage = 0; } 
             else { damage -= a.buffs.shield; a.buffs.shield = 0; }
           }
+          
+          const maxAllowedDamage = Math.floor(a.maxHp * 0.75);
+          if (damage > maxAllowedDamage) {
+            damage = maxAllowedDamage;
+            this.log(`<span style="color:var(--muted); font-size:0.8rem;">🛡️ Mekanisme Pertahanan: Damage dibatasi agar tidak langsung tumbang!</span>`);
+          }
+
           a.hp = Math.max(0, a.hp - damage);
           this.log(`💥 ${a.name} menerima ${damage} DMG.`);
           if (a.hp === 0) this.log(`☠️ ${a.name} tumbang!`);
@@ -1025,6 +977,13 @@ const Battle = {
           if (target.buffs.shield >= damage) { target.buffs.shield -= damage; damage = 0; } 
           else { damage -= target.buffs.shield; target.buffs.shield = 0; }
         }
+        
+        const maxAllowedDamage = Math.floor(target.maxHp * 0.75);
+        if (damage > maxAllowedDamage) {
+          damage = maxAllowedDamage;
+          this.log(`<span style="color:var(--muted); font-size:0.8rem;">🛡️ Mekanisme Pertahanan: Damage dibatasi agar tidak langsung tumbang!</span>`);
+        }
+
         target.hp = Math.max(0, target.hp - damage);
         this.log(`<span class="eff-bad" style="color:var(--danger)">${actor.name}</span> menyerang ${target.name} (${damage} DMG).`);
         if (target.hp === 0) this.log(`☠️ ${target.name} tumbang!`);
@@ -1033,7 +992,6 @@ const Battle = {
     else {
       let targetDef = target.def;
       if (target.buffs && target.buffs.def > 0 && target.buffs.defAmount) targetDef = Math.floor(targetDef * (1 + target.buffs.defAmount));
-
       const mitigation = targetDef / (targetDef + 100);
       let damage = Math.max(1, Math.floor(damageBase * (1 - mitigation)));
       const elMult = getElementMultiplier(actor.element, target.element);
@@ -1045,6 +1003,9 @@ const Battle = {
         if (target.buffs.shield >= damage) { target.buffs.shield -= damage; damage = 0; } 
         else { damage -= target.buffs.shield; target.buffs.shield = 0; }
       }
+      
+      const maxAllowedDamage = Math.floor(target.maxHp * 0.75);
+      if (damage > maxAllowedDamage) damage = maxAllowedDamage;
 
       target.hp = Math.max(0, target.hp - damage);
       this.log(`<span class="eff-bad">${actor.name}</span> menyerang ${target.name} (${damage} DMG).`);
@@ -1058,7 +1019,6 @@ const Battle = {
   renderPotionBar() {
     const bar = document.getElementById('potionBar');
     if (!bar) return;
-    
     let html = '';
     const potions = Player.data.potions || {};
     let hasPotion = false;
@@ -1083,10 +1043,7 @@ const Battle = {
       }
     });
 
-    if (!hasPotion) {
-      html = `<div style="font-size:0.8rem; color:var(--muted); text-align:center; width:100%;">Tidak ada potion di tas.</div>`;
-    }
-    
+    if (!hasPotion) html = `<div style="font-size:0.8rem; color:var(--muted); text-align:center; width:100%;">Tidak ada potion di tas.</div>`;
     bar.innerHTML = html;
   },
 
@@ -1104,6 +1061,7 @@ const Battle = {
     this.log(`🧪 <span class="eff-good">Menggunakan ${p.name}</span>!`);
     
     if (potionId === 'health') {
+      this.potionUsedThisBattle = true; // <--- SET FLAG BOSS RUSH
       this.allies.forEach(a => {
         if (a.hp > 0) {
           let heal = Math.floor(a.maxHp * 0.4);
@@ -1113,9 +1071,7 @@ const Battle = {
       this.log(`💚 Seluruh tim dipulihkan sebesar 40%!`);
     } 
     else if (potionId === 'energy') {
-      this.allies.forEach(a => {
-        if (a.hp > 0) a.skillCooldowns = {};
-      });
+      this.allies.forEach(a => { if (a.hp > 0) a.skillCooldowns = {}; });
       this.log(`⚡ Cooldown skill seluruh tim di-reset!`);
     }
     else if (potionId === 'attack') {
@@ -1140,15 +1096,11 @@ const Battle = {
     const bar = document.getElementById('actionBar');
     let skills = ['strike'];
     let role = 'Minion';
-    
     if (actor.charId && CHARACTERS[actor.charId]) {
       skills = CHARACTERS[actor.charId].skills;
       role = CHARACTERS[actor.charId].role;
     }
-
-    if (role === 'Support') {
-      skills = ['support_inspire'];
-    }
+    if (role === 'Support') skills = ['support_inspire'];
 
     let html = `<div class="actor-label">Giliran: <b>${actor.name}</b> | Role: <span style="color: var(--accent-2)">${role}</span></div>`;
     html += `<div class="action-buttons">`;
@@ -1156,7 +1108,6 @@ const Battle = {
     skills.forEach(skillId => {
       const skill = SKILLS[skillId];
       if (!skill) return;
-
       let cd = (actor.skillCooldowns && actor.skillCooldowns[skillId]) || 0;
       let isDisabled = cd > 0;
       
@@ -1183,7 +1134,6 @@ const Battle = {
       `;
     });
     
-    // ===== DOUBLE OR NOTHING (kecuali saat Creator encounter) =====
     if (!this.isCreatorEncounter) {
       html += `
         <button class="skill-btn gamble-btn" onclick="Battle.gambleDoubleOrNothing(Battle.turnQueue[Battle.turnIndex])">
@@ -1193,10 +1143,6 @@ const Battle = {
             <span class="skill-desc">50%: DMG ×3 | 50%: DMG 0 + SEMUA CD +3 ronde</span>
           </div>
         </button>
-      `;
-
-      // ===== SKIP GILIRAN =====
-      html += `
         <button class="skill-btn skip-btn" onclick="Battle.skipTurn(Battle.turnQueue[Battle.turnIndex])">
           <span class="skill-icon">⏭️</span>
           <div class="skill-text">
@@ -1221,15 +1167,9 @@ const Battle = {
             <div class="unit-info">
               <div class="unit-name" style="color:#fff;font-size:0.9rem;text-shadow:0 0 10px #fff;">${u.name}</div>
               <div style="font-size:0.65rem;color:#ff4d5e;font-weight:900;margin-bottom:4px;">⚠️ UNKNOWN ENTITY</div>
-              <div style="font-family:monospace;font-size:0.7rem;color:#8a90a8;line-height:1.3;">
-                HP: ???????????<br>
-                ATK: ???????????<br>
-                DEF: ??????????<br>
-                SPD: ??????????
-              </div>
+              <div style="font-family:monospace;font-size:0.7rem;color:#8a90a8;line-height:1.3;">HP: ???????????<br>ATK: ???????????<br>DEF: ??????????<br>SPD: ??????????</div>
             </div>
-          </div>
-        `;
+          </div>`;
       }
       
       let status = '';
@@ -1240,10 +1180,10 @@ const Battle = {
         if (u.buffs.def > 0) status += `<span class="status-icon buff" title="DEF +${Math.round((u.buffs.defAmount||0)*100)}%">🛡️</span>`;
         if (u.buffs.spd > 0) status += `<span class="status-icon buff" title="SPD +${Math.round((u.buffs.spdAmount||0)*100)}%">💨</span>`;
         if (u.buffs.supportAtk > 0) status += `<span class="status-icon buff" title="Support Buff x${u.buffs.supportStacks||1}" style="color:var(--accent-2)">🎻</span>`;
-        if (u.buffs.teamAtk > 0) status += `<span class="status-icon buff" title="War Hymn: ATK +${Math.round((u.buffs.teamAtkAmount || 0.5) * 100)}%, stack ${u.buffs.stack_atk || 1}/20">⚔️</span>`;
-        if (u.buffs.teamDef > 0) status += `<span class="status-icon buff" title="Celestial Guard: DEF +${Math.round((u.buffs.teamDefAmount || .35)*100)}%, stack ${u.buffs.stack_def || 1}/20">🛡️</span>`;
-        if (u.buffs.teamSpd > 0) status += `<span class="status-icon buff" title="Tempo Symphony: SPD +${Math.round((u.buffs.teamSpdAmount || .2)*100)}%, stack ${u.buffs.stack_spd || 1}/20">💨</span>`;
-        if (u.buffs.teamCritDmg > 0) status += `<span class="status-icon buff" title="Critical Blessing: Crit DMG +${Math.round((u.buffs.teamCritDmgAmount || 0.6) * 100)}%, stack ${u.buffs.stack_critDmg || 1}/20">💥</span>`;
+        if (u.buffs.teamAtk > 0) status += `<span class="status-icon buff" title="War Hymn: ATK +${Math.round((u.buffs.teamAtkAmount || 0.5) * 100)}%">⚔️</span>`;
+        if (u.buffs.teamDef > 0) status += `<span class="status-icon buff" title="Celestial Guard: DEF +${Math.round((u.buffs.teamDefAmount || .35)*100)}%">🛡️</span>`;
+        if (u.buffs.teamSpd > 0) status += `<span class="status-icon buff" title="Tempo Symphony: SPD +${Math.round((u.buffs.teamSpdAmount || .2)*100)}%">💨</span>`;
+        if (u.buffs.teamCritDmg > 0) status += `<span class="status-icon buff" title="Critical Blessing: Crit DMG +${Math.round((u.buffs.teamCritDmgAmount || 0.6) * 100)}%">💥</span>`;
       }
       if (u.debuffs) {
         if (u.debuffs.atkDown && u.debuffs.atkDown.turns > 0) status += `<span class="status-icon debuff" title="ATK Down ${Math.round(u.debuffs.atkDown.amount*100)}% x${u.debuffs.atkDown.stacks || 1}">🔻</span>`;
@@ -1274,14 +1214,9 @@ const Battle = {
   log(msg) {
     const logEl = document.getElementById('battleLog');
     if (!logEl) return;
-
     const line = document.createElement('div');
-    line.innerHTML = String(msg)
-      .replace(/<\s*(script|style|iframe|object)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-      .replace(/javascript\s*:/gi, '');
+    line.innerHTML = String(msg).replace(/<\s*(script|style|iframe|object)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '').replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/javascript\s*:/gi, '');
     logEl.appendChild(line);
-
     while (logEl.childElementCount > 60) logEl.firstElementChild.remove();
     if (!logEl._scrollScheduled) {
       logEl._scrollScheduled = true;
@@ -1296,45 +1231,85 @@ const Battle = {
 
   checkEnd() {
     if (this.isCreatorEncounter) return false;
-    
     const aliveEnemies = this.enemies.filter(e => e.hp > 0);
     const aliveAllies = this.allies.filter(a => a.hp > 0);
-    if (aliveEnemies.length === 0) { this.end(true); return true; }
-    if (aliveAllies.length === 0) { this.end(false); return true; }
+    
+    if (aliveEnemies.length === 0) { 
+      if (this.isBossRush) this.endBossRush(true);
+      else this.end(true); 
+      return true; 
+    }
+    if (aliveAllies.length === 0) { 
+      if (this.isBossRush) this.endBossRush(false);
+      else this.end(false); 
+      return true; 
+    }
     return false;
   },
 
-  // ==========================================
-  // MATERIAL DROP — bahan potion (herb, crystal, blood) & material langka
-  // Dipakai oleh end(true) DAN skipBattle()
-  // ==========================================
+  endBossRush(isWin) {
+    this.active = false;
+    this.isBossRush = false;
+    const modal = document.getElementById('battleResult');
+    const floor = this.stageId - 1000;
+
+    if (isWin) {
+      const gemsReward = 50 + (floor * 10);
+      Player.data.gems += gemsReward;
+      Player.data.bossRushFloor = Math.min(500, floor + 1);
+      Player.save();
+      
+      if (typeof window.renderAll === 'function') window.renderAll();
+
+      modal.innerHTML = `
+        <div style="text-align:center; padding:20px;">
+          <h2 style="color:#ffb547; font-size:1.8rem; font-weight:900; margin-bottom:10px;">👑 FLOOR ${floor} CLEARED!</h2>
+          <p style="color:#fff; font-style:italic;">"Teka-teki berhasil dipecahkan."</p>
+          <div class="card" style="text-align:center; margin:15px 0; border-color:#ffb547;">
+            <p style="font-size:1.2rem; margin:0;">💎 <b>+${gemsReward.toLocaleString()} Gems</b></p>
+          </div>
+          <div class="result-btns" style="justify-content:center; gap:10px; display:flex;">
+            <button onclick="document.getElementById('battleOverlay').classList.add('hidden'); document.getElementById('battleResult').classList.add('hidden'); if(typeof renderAll === 'function') renderAll();">Kembali ke Menu</button>
+            <button onclick="document.getElementById('battleResult').classList.add('hidden'); Battle.startBossRush(${floor + 1});" style="background:var(--accent);">Lanjut Floor ${floor + 1} ➔</button>
+          </div>
+        </div>
+      `;
+    } else {
+      modal.innerHTML = `
+        <div style="text-align:center; padding:20px;">
+          <h2 style="color:#ff4d5e; font-size:1.8rem; font-weight:900; margin-bottom:10px;">💀 TEKA-TEKI GAGAL</h2>
+          <p style="color:#fff; font-style:italic;">"Kau belum menemukan jawabannya..."</p>
+          <p class="muted" style="margin:15px 0;">Hint: ${this.currentRushBoss.riddleData.hint}</p>
+          <div class="result-btns" style="justify-content:center; gap:10px; display:flex;">
+            <button onclick="document.getElementById('battleOverlay').classList.add('hidden'); document.getElementById('battleResult').classList.add('hidden'); if(typeof renderAll === 'function') renderAll();">Kembali ke Menu</button>
+            <button onclick="document.getElementById('battleResult').classList.add('hidden'); Battle.startBossRush(${floor});">🔄 Coba Lagi</button>
+          </div>
+        </div>
+      `;
+    }
+    modal.classList.remove('hidden');
+  },
+
   rollMaterialDrop(stageId) {
-    // ===== Stage 1–69: bahan potion umum =====
     if (stageId >= 1 && stageId < 70) {
-      // 70% peluang dapat bahan potion (minimal 1)
       if (Math.random() < 0.70) {
         const chosen = POTION_MATERIALS[Math.floor(Math.random() * POTION_MATERIALS.length)];
-        const count = Math.random() < 0.25 ? 2 : 1; // 25% chance dapat 2
+        const count = Math.random() < 0.25 ? 2 : 1; 
         return { matId: chosen, count };
       }
     }
-
-    // ===== Stage 70+: material langka + bahan potion =====
     if (stageId >= 70) {
       const roll = Math.random();
-      // 4% material langka (feather/horn)
       if (roll < 0.04) {
         const chosen = ['feather', 'horn'][Math.floor(Math.random() * 2)];
         return { matId: chosen, count: 1 };
       }
-      // 45% bahan potion (dengan bonus count)
       if (roll < 0.49) {
         const chosen = POTION_MATERIALS[Math.floor(Math.random() * POTION_MATERIALS.length)];
         const count = Math.random() < 0.40 ? 2 : 1;
         return { matId: chosen, count };
       }
     }
-
     return null;
   },
 
@@ -1382,21 +1357,16 @@ const Battle = {
     };
   },
 
-  // ==========================================
-  // PENALTI KALAH (TIDAK RESET — hanya kehilangan item)
-  // ==========================================
   _getMaterialStore() {
     const d = Player.data || {};
     const candidates = [d.materials, d.mats, d.materialInventory, d.inventoryMaterials];
     return candidates.find(s => s && typeof s === 'object' && !Array.isArray(s)) || null;
   },
-
   _getEquipList() {
     const d = Player.data || {};
     const candidates = [d.equipment, d.equipInventory, d.equipments, d.inventory, d.equips];
     return candidates.find(s => Array.isArray(s)) || null;
   },
-
   _isEquipmentInUse(eqId) {
     try {
       const needle = `"${eqId}"`;
@@ -1408,8 +1378,6 @@ const Battle = {
 
   applyDefeatPenalty() {
     const lost = { potions: [], materials: [], equipment: null };
-
-    // --- Potion ---
     const potions = Player.data.potions || {};
     Object.keys(potions).forEach(pId => {
       const count = potions[pId] || 0;
@@ -1419,7 +1387,6 @@ const Battle = {
       lost.potions.push({ id: pId, count: loss });
     });
 
-    // --- Material ---
     const matStore = this._getMaterialStore();
     if (matStore) {
       Object.keys(matStore).forEach(mId => {
@@ -1431,7 +1398,6 @@ const Battle = {
       });
     }
 
-    // --- Equipment (hanya yang tidak sedang dipakai) ---
     const equipList = this._getEquipList();
     if (equipList && Math.random() < DEFEAT_PENALTY.equipmentChance) {
       const free = equipList.filter(eq => eq && eq.id && !this._isEquipmentInUse(eq.id));
@@ -1444,37 +1410,28 @@ const Battle = {
         }
       }
     }
-
     Player.save();
     return lost;
   },
 
   _buildDefeatPenaltyHtml(lost) {
     const rows = [];
-
     lost.potions.forEach(l => {
       const p = (typeof POTIONS !== 'undefined' && POTIONS[l.id]) || { name: l.id, emoji: '🧪' };
       rows.push(`<div style="font-size:0.9rem; margin-top:4px;">${p.emoji} <b>${p.name}</b> <span style="color:#ff4d5e;">-${l.count}</span></div>`);
     });
-
     lost.materials.forEach(l => {
       const m = (typeof MATERIALS !== 'undefined' && MATERIALS[l.id]) || { name: l.id, emoji: '📦' };
       rows.push(`<div style="font-size:0.9rem; margin-top:4px;">${m.emoji} <b>${m.name}</b> <span style="color:#ff4d5e;">-${l.count}</span></div>`);
     });
-
     if (lost.equipment) {
       const eq = lost.equipment;
       const r = (typeof EQUIP_RARITIES !== 'undefined' && EQUIP_RARITIES[eq.rarity]) || { color: '#fff' };
       rows.push(`<div style="font-size:0.9rem; margin-top:4px;">${eq.emoji || '🎒'} <b style="color:${r.color}">${eq.name}</b> <span style="color:#ff4d5e;">hilang!</span></div>`);
     }
-
     if (rows.length === 0) {
-      return `
-        <div style="margin-top: 10px; padding: 8px; background: rgba(61,220,132,0.1); border-radius: 8px; border-left: 4px solid #3ddc84;">
-          <span style="color:#3ddc84; font-weight:bold;">🍀 Beruntung! Tidak ada item yang hilang.</span>
-        </div>`;
+      return `<div style="margin-top: 10px; padding: 8px; background: rgba(61,220,132,0.1); border-radius: 8px; border-left: 4px solid #3ddc84;"><span style="color:#3ddc84; font-weight:bold;">🍀 Beruntung! Tidak ada item yang hilang.</span></div>`;
     }
-
     return `
       <div style="margin-top: 10px; padding: 10px; background: rgba(255,77,94,0.08); border-radius: 8px; border-left: 4px solid #ff4d5e; text-align:left;">
         <span style="color:#ff4d5e; font-weight:bold;">💸 Kamu kehilangan sebagian barang:</span>
@@ -1499,18 +1456,12 @@ const Battle = {
       });
 
       let dropHtml = '';
-      // Material drop — termasuk bahan potion (herb, crystal, blood)
       const matDrop = this.rollMaterialDrop(this.stageId);
       if (matDrop) {
         Player.addMaterial(matDrop.matId, matDrop.count);
         const matData = (typeof MATERIALS !== 'undefined' && MATERIALS[matDrop.matId]) || { name: matDrop.matId, emoji: '📦' };
         const isPotionMat = POTION_MATERIALS.includes(matDrop.matId);
-        dropHtml += `
-          <div style="margin-top: 10px; padding: 8px; background: rgba(0,255,0,0.1); border-radius: 8px; border-left: 4px solid #3ddc84;">
-            <span style="color: #3ddc84; font-weight: bold;">${isPotionMat ? '🧪 Bahan Potion Drop!' : '🌿 Material Drop!'}</span>
-            <div style="font-size: 0.9rem; margin-top: 4px;">${matData.emoji} <b>${matData.name}</b> x${matDrop.count}</div>
-          </div>
-        `;
+        dropHtml += `<div style="margin-top: 10px; padding: 8px; background: rgba(0,255,0,0.1); border-radius: 8px; border-left: 4px solid #3ddc84;"><span style="color: #3ddc84; font-weight: bold;">${isPotionMat ? '🧪 Bahan Potion Drop!' : '🌿 Material Drop!'}</span><div style="font-size: 0.9rem; margin-top: 4px;">${matData.emoji} <b>${matData.name}</b> x${matDrop.count}</div></div>`;
       }
 
       const eqDrop = this.rollEquipmentDrop(this.stageId);
@@ -1518,23 +1469,13 @@ const Battle = {
         Player.addEquipment(eqDrop);
         const rData = EQUIP_RARITIES[eqDrop.rarity];
         const spdText = eqDrop.spd ? ` · SPD +${eqDrop.spd}` : '';
-        dropHtml += `
-          <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 4px solid ${rData.color};">
-            <span style="color: ${rData.color}; font-weight: bold;">🎁 Equipment Drop!</span>
-            <div style="font-size: 0.9rem; margin-top: 4px;">${eqDrop.emoji} <b style="color:${rData.color}">${eqDrop.name}</b>${spdText}</div>
-          </div>
-        `;
+        dropHtml += `<div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 4px solid ${rData.color};"><span style="color: ${rData.color}; font-weight: bold;">🎁 Equipment Drop!</span><div style="font-size: 0.9rem; margin-top: 4px;">${eqDrop.emoji} <b style="color:${rData.color}">${eqDrop.name}</b>${spdText}</div></div>`;
       }
 
       Player.completeStage(this.stageId);
       
       if (Player.noxLeveledUp) {
-        dropHtml += `
-          <div style="margin-top: 10px; padding: 12px; background: linear-gradient(135deg, rgba(255,181,71,0.2), rgba(255,77,94,0.2)); border-radius: 8px; border: 1px solid #ffb547;">
-            <span style="color: #ffb547; font-weight: bold; font-size: 1rem;">⚔️ TRUE BLADE AWAKENING!</span>
-            <div style="font-size: 0.9rem; margin-top: 4px; color: #fff;">Nox berhasil naik ke Bintang <b>${Player.noxLeveledUp}</b>!</div>
-          </div>
-        `;
+        dropHtml += `<div style="margin-top: 10px; padding: 12px; background: linear-gradient(135deg, rgba(255,181,71,0.2), rgba(255,77,94,0.2)); border-radius: 8px; border: 1px solid #ffb547;"><span style="color: #ffb547; font-weight: bold; font-size: 1rem;">⚔️ TRUE BLADE AWAKENING!</span><div style="font-size: 0.9rem; margin-top: 4px; color: #fff;">Nox berhasil naik ke Bintang <b>${Player.noxLeveledUp}</b>!</div></div>`;
         Player.noxLeveledUp = false; 
       }
 
@@ -1555,7 +1496,6 @@ const Battle = {
         </div>
       `;
     } else {
-      // ===== KALAH: tidak reset, hanya kehilangan sebagian item =====
       const lost = this.applyDefeatPenalty();
       const penaltyHtml = this._buildDefeatPenaltyHtml(lost);
       if (typeof window.renderAll === 'function') window.renderAll();

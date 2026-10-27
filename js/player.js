@@ -2,6 +2,9 @@ const Player = {
   KEY: 'rpg_gacha_save_v1',
   data: null,
 
+  ENHANCE_MAX: 30,
+  ENHANCE_BASE_COST: 500,
+
   init() {
     let raw = null;
     try { raw = localStorage.getItem(this.KEY); } catch (e) {}
@@ -24,11 +27,13 @@ const Player = {
     if (!this.data.relics) this.data.relics = [];
     if (this.data.equippedRelic === undefined) this.data.equippedRelic = null;
     if (!this.data.skip) this.data.skip = { date: '', count: 0 };
-    // Creator encounter state
     if (!this.data.battleCount) this.data.battleCount = 0;
     if (this.data.lastCreatorEncounter === undefined) this.data.lastCreatorEncounter = null;
     if (!this.data.creatorState) this.data.creatorState = { totalEncounters: 0 };
     
+    // Migrasi Boss Rush
+    if (this.data.bossRushFloor === undefined) this.data.bossRushFloor = 1;
+
     if (this.data && this.data.roster) {
       this.data.roster.forEach(c => { 
         if (!c.evo) c.evo = 1; 
@@ -37,6 +42,12 @@ const Player = {
         if (!Number.isFinite(c.passiveLevel)) c.passiveLevel = 1;
         if (!c.statPoints) c.statPoints = { hp: 0, atk: 0, def: 0, spd: 0, crit: 0 };
         if (!c.bonusStatPoints) c.bonusStatPoints = 0;
+      });
+    }
+
+    if (Array.isArray(this.data.inventory)) {
+      this.data.inventory.forEach(item => {
+        if (item && item.enhanceLevel === undefined) item.enhanceLevel = 0;
       });
     }
 
@@ -55,7 +66,8 @@ const Player = {
     if (!hasAirblade) {
       this.data.inventory.push({
         id: 'eq_airblade', type: 'weapon', rarity: 10, name: 'Airblade', emoji: '🗡️',
-        atk: 500, def: 0, hp: 0, spd: 500, crit: 5
+        atk: 500, def: 0, hp: 0, spd: 500, crit: 5,
+        enhanceLevel: 0
       });
     }
     noxInst.equipment.weapon = 'eq_airblade';
@@ -79,12 +91,14 @@ const Player = {
       inventory: [], equipCounter: 1, materials: {}, potions: {},
       relics: [], equippedRelic: null, skip: { date: '', count: 0 },
       battleCount: 0, lastCreatorEncounter: null,
-      creatorState: { totalEncounters: 0 }
+      creatorState: { totalEncounters: 0 },
+      bossRushFloor: 1 // <--- Tambahan Boss Rush
     };
     
     this.data.inventory.push({
       id: 'eq_airblade', type: 'weapon', rarity: 10, name: 'Airblade', emoji: '🗡️',
-      atk: 500, def: 0, hp: 0, spd: 500, crit: 5
+      atk: 500, def: 0, hp: 0, spd: 500, crit: 5,
+      enhanceLevel: 0
     });
 
     const nox = this.addCharacter('nox');
@@ -117,7 +131,6 @@ const Player = {
 
   getInstance(uid) { return this.data.roster.find(r => r.uid === uid) || null; },
 
-  // ===== STAT POINT SYSTEM (dengan bonus dari Creator) =====
   getMaxStatPoints(inst) {
     if (!inst) return 0;
     const base = Math.min(500, Math.max(0, (inst.level || 1) * 2));
@@ -130,15 +143,26 @@ const Player = {
   getAvailableStatPoints(inst) {
     return Math.max(0, this.getMaxStatPoints(inst) - this.getUsedStatPoints(inst));
   },
-  allocateStat(uid, stat) {
+  allocateStat(uid, stat, amount = 1) {
     const inst = this.getInstance(uid);
     if (!inst) return { ok: false, message: 'Karakter tidak ditemukan.' };
-    if (!['hp', 'atk', 'def', 'spd', 'crit'].includes(stat)) return { ok: false, message: 'Stat tidak valid.' };
+    if (!['hp', 'atk', 'def', 'spd', 'crit'].includes(stat)) {
+      return { ok: false, message: 'Stat tidak valid.' };
+    }
     if (!inst.statPoints) inst.statPoints = { hp: 0, atk: 0, def: 0, spd: 0, crit: 0 };
-    if (this.getAvailableStatPoints(inst) <= 0) return { ok: false, message: 'Tidak ada poin stat tersisa.' };
-    inst.statPoints[stat] = (inst.statPoints[stat] || 0) + 1;
+
+    const available = this.getAvailableStatPoints(inst);
+    if (available <= 0) {
+      return { ok: false, message: 'Tidak ada poin stat tersisa.' };
+    }
+
+    let amt = Math.floor(Number(amount));
+    if (!Number.isFinite(amt) || amt < 1) amt = 1;
+    if (amt > available) amt = available;
+
+    inst.statPoints[stat] = (inst.statPoints[stat] || 0) + amt;
     this.save();
-    return { ok: true };
+    return { ok: true, added: amt, remaining: available - amt };
   },
   resetStatPoints(uid) {
     const inst = this.getInstance(uid);
@@ -146,6 +170,55 @@ const Player = {
     inst.statPoints = { hp: 0, atk: 0, def: 0, spd: 0, crit: 0 };
     this.save();
     return true;
+  },
+
+  getEnhanceCost(item) {
+    if (!item) return Infinity;
+    const lv = item.enhanceLevel || 0;
+    if (lv >= this.ENHANCE_MAX) return Infinity;
+    return Math.floor(this.ENHANCE_BASE_COST * Math.pow(lv + 1, 2));
+  },
+
+  getEnhancedStats(item) {
+    if (!item) return { atk: 0, def: 0, hp: 0, spd: 0, crit: 0, critDmg: 0 };
+    const lv = item.enhanceLevel || 0;
+    const mult = 1 + lv * 0.10;
+    const s = {
+      atk: Math.floor((item.atk || 0) * mult),
+      def: Math.floor((item.def || 0) * mult),
+      hp: Math.floor((item.hp || 0) * mult),
+      spd: Math.floor((item.spd || 0) * mult),
+      crit: (item.crit || 0),
+      critDmg: (item.critDmg || 0)
+    };
+    if (lv >= 10) s.crit += 3;
+    if (lv >= 20) { s.crit += 3; s.critDmg += 10; }
+    if (lv >= 30) {
+      s.crit += 4;
+      s.critDmg += 15;
+      s.atk = Math.floor(s.atk * 1.20);
+      s.def = Math.floor(s.def * 1.20);
+      s.hp = Math.floor(s.hp * 1.20);
+      s.spd = Math.floor(s.spd * 1.20);
+    }
+    return s;
+  },
+
+  enhanceEquipment(itemId) {
+    const item = this.data.inventory.find(i => i.id === itemId);
+    if (!item) return { ok: false, message: 'Equipment tidak ditemukan.' };
+    const lv = item.enhanceLevel || 0;
+    if (lv >= this.ENHANCE_MAX) {
+      return { ok: false, message: `Sudah mencapai batas maksimal +${this.ENHANCE_MAX}.` };
+    }
+    const cost = this.getEnhanceCost(item);
+    if ((this.data.gold || 0) < cost) {
+      return { ok: false, message: `Gold tidak cukup. Butuh ${cost.toLocaleString()} Gold.` };
+    }
+    this.data.gold -= cost;
+    item.enhanceLevel = lv + 1;
+    this.save();
+    return { ok: true, newLevel: item.enhanceLevel, cost };
   },
 
   getSkillUpgradeCost(inst, skillId) {
@@ -187,6 +260,26 @@ const Player = {
   },
 
   getTeamUnits() { return this.data.team.map(uid => this.getInstance(uid)).filter(Boolean); },
+
+  getTeamPower() {
+    const team = this.getTeamUnits();
+    if (!team || team.length === 0) return { total: 1000, average: 1000, avgLevel: 1 };
+    let totalPower = 0;
+    let avgLevel = 0;
+    team.forEach(u => {
+      const stats = this.computeStats(u);
+      avgLevel += (u.level || 1);
+      const unitPower = 
+        (stats.maxHp * 0.1) + 
+        (stats.atk * 2.0) + 
+        (stats.def * 1.5) + 
+        (stats.spd * 5.0) + 
+        ((stats.crit || 0) * 10.0) + 
+        ((stats.critDmg || 0) * 5.0);
+      totalPower += unitPower;
+    });
+    return { total: Math.floor(totalPower), average: Math.floor(totalPower / team.length), avgLevel: Math.floor(avgLevel / team.length) };
+  },
 
   addToTeam(uid) {
     if (this.data.team.includes(uid) || this.data.team.length >= 4) return false;
@@ -264,7 +357,8 @@ const Player = {
       this.data.gold -= recipe.gold;
       const item = {
         id: 'eq_' + this.data.equipCounter++, type: recipe.type, rarity: recipe.rarity,
-        name: recipe.name, emoji: recipe.emoji, atk: recipe.atk, def: recipe.def, hp: recipe.hp, spd: recipe.spd
+        name: recipe.name, emoji: recipe.emoji, atk: recipe.atk, def: recipe.def, hp: recipe.hp, spd: recipe.spd,
+        enhanceLevel: 0
       };
       this.data.inventory.push(item);
     }
@@ -272,7 +366,11 @@ const Player = {
     return true;
   },
 
-  addEquipment(item) { this.data.inventory.push(item); this.save(); },
+  addEquipment(item) { 
+    if (item && item.enhanceLevel === undefined) item.enhanceLevel = 0;
+    this.data.inventory.push(item); 
+    this.save(); 
+  },
   addMaterial(matId, count = 1) {
     if (!this.data.materials[matId]) this.data.materials[matId] = 0;
     this.data.materials[matId] += count;
@@ -361,9 +459,10 @@ const Player = {
         if (eqId) {
           const item = this.data.inventory.find(i => i.id === eqId);
           if (item) {
-            eqAtk += item.atk || 0; eqDef += item.def || 0; eqHp += item.hp || 0; eqSpd += item.spd || 0;
-            eqCrit += item.crit || 0;
-            eqCritDmg += item.critDmg || 0;
+            const es = this.getEnhancedStats(item);
+            eqAtk += es.atk; eqDef += es.def; eqHp += es.hp; eqSpd += es.spd;
+            eqCrit += es.crit;
+            eqCritDmg += es.critDmg;
             if (item.rarity === 8) angelCount++;
             if (item.rarity === 9) demonCount++;
           }

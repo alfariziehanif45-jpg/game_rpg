@@ -49,7 +49,6 @@ const CRAFT_RECIPES = {
   storm_boots: { name: 'Storm Boots', type: 'accessory', rarity: 3, emoji: '🌪️', atk: 30, def: 30, hp: 300, spd: 28, cost: { feather: 2, crystal: 3 }, gold: 14000 },
   abyss_relic: { name: 'Abyss Relic', type: 'accessory', rarity: 5, emoji: '🌀', atk: 220, def: 80, hp: 1800, spd: 20, cost: { horn: 1, blood: 8 }, gold: 60000 },
   celestial_aegis: { name: 'Celestial Aegis', type: 'armor', rarity: 6, emoji: '🌟', atk: 80, def: 240, hp: 3200, spd: 8, cost: { feather: 3, crystal: 8 }, gold: 85000 },
-  // ===== EQUIPMENT SPD BARU =====
   swift_blade: { name: 'Swift Blade', type: 'weapon', rarity: 3, emoji: '🗡️', atk: 70, def: 0, hp: 0, spd: 45, cost: { crystal: 3, feather: 1 }, gold: 12000 },
   gale_armor: { name: 'Gale Armor', type: 'armor', rarity: 3, emoji: '🥋', atk: 10, def: 85, hp: 900, spd: 25, cost: { herb: 4, crystal: 3 }, gold: 15000 },
   windrunner_boots: { name: 'Windrunner Boots', type: 'accessory', rarity: 4, emoji: '👟', atk: 20, def: 25, hp: 400, spd: 60, cost: { feather: 2, crystal: 4 }, gold: 25000 },
@@ -83,7 +82,6 @@ const SKILLS = {
   quake: { name: 'Guncangan Bumi', mp: 28, type: 'damage', power: 1.3, target: 'enemy', aoe: true, element: 'earth', desc: 'Mengguncang bumi.' },
   holy_shield: { name: 'Perisai Suci', mp: 16, type: 'buff', target: 'ally', stat: 'def', amount: 0.6, turns: 3, element: 'light', desc: '+60% DEF sekutu (3 turn).' },
   
-  // NOX REVAMP: total 7 skill — 4 single-target dan 3 AOE.
   nox_strike: { name: 'Umbral Quickdraw', mp: 0, type: 'damage', power: 1.6, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — tebasan dasar cepat dengan pedang bayangan.' },
   nox_x_slash: { name: 'Phantom X-Slash', mp: 12, type: 'damage', power: 2.8, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — dua tebasan silang yang menghantam satu musuh.' },
   nox_cross_blade: { name: 'Rift Piercer', mp: 18, type: 'damage', power: 3.8, target: 'enemy', aoe: false, element: 'dark', desc: 'SINGLE TARGET — tusukan terkonsentrasi untuk menembus pertahanan satu target.' },
@@ -92,7 +90,6 @@ const SKILLS = {
   nox_execution: { name: 'Abyssal Rupture', mp: 34, type: 'damage', power: 3.6, target: 'enemy', aoe: true, element: 'dark', desc: 'AOE FINISHER — retakan energi abyss menghantam semua musuh; dapat memicu bonus finisher.' },
   nox_true_blade: { name: 'True Blade: Oblivion', mp: 45, type: 'damage', power: 5.2, target: 'enemy', aoe: true, element: 'dark', desc: 'AOE ULTIMATE — tebasan pedang sejati menghancurkan semua musuh dan mengonsumsi bonus finisher.' },
 
-  // SKILL SUPPORT (Hanya 1, tidak bisa nyerang)
   support_inspire: { name: 'Inspirasi Tempur', mp: 0, type: 'support', target: 'ally', aoe: true, element: 'light', desc: 'Meningkatkan ATK, Crit, & Crit Dmg DPS sebesar 60% (3 Ronde).' },
   shadow_mark: { name: 'Shadow Mark', mp: 20, type: 'debuff', target: 'enemy', debuff: 'damageTaken', amount: 0.30, turns: 3, element: 'dark', desc: 'Musuh menerima damage 30% lebih besar selama 3 turn.' },
   armor_rupture: { name: 'Armor Rupture', mp: 25, type: 'debuff', target: 'enemy', debuff: 'defDown', amount: 0.40, turns: 3, element: 'dark', desc: 'Mengurangi DEF musuh 40% selama 3 turn.' },
@@ -163,9 +160,6 @@ const BOSSES = {
   }
 };
 
-/* ==========================================================
-   Sistem Elemen — counter & multiplier
-   ========================================================== */
 const ELEMENTS = {
   fire:  { name: 'Api', emoji: '🔥', strong: ['wind'], weak: ['water'] },
   water: { name: 'Air', emoji: '💧', strong: ['fire'], weak: ['earth'] },
@@ -184,9 +178,6 @@ function getElementMultiplier(atkEl, defEl) {
   return 1;
 }
 
-/* ==========================================================
-   Database Relic
-   ========================================================== */
 const RELICS = {
   relic_wood: { name: 'Wooden Charm', emoji: '🪵', rarity: 0, price: 100, effect: 'hp', baseVal: 100, desc: 'Memberikan tambahan Max HP ke seluruh tim.' },
   relic_iron: { name: 'Iron Shield', emoji: '🛡️', rarity: 1, price: 500, effect: 'def', baseVal: 20, desc: 'Memberikan tambahan DEF ke seluruh tim.' },
@@ -201,23 +192,82 @@ const RELICS = {
   relic_chaos: { name: 'Chaos Core', emoji: '🌌', rarity: 7, price: 500000, effect: 'chaos', baseVal: 0, desc: 'Memotong CD 1 giliran, +50% Buff/Heal, +20% ATK & HP tim.' }
 };
 
-/* ==========================================================
-   CREATOR ENCOUNTER — event langka high-risk high-reward
-   ========================================================== */
 const CREATOR_ENCOUNTER = {
-  chance: 0.03,       // 3% per battle
-  minStage: 5,        // hanya stage >= 5
-  cooldown: 20,       // minimal 20 battle antar encounter
-  name: '??? Creator ???',
-  emoji: '👁️',
+  chance: 0.03, minStage: 5, cooldown: 20,
+  name: '??? Creator ???', emoji: '👁️',
   dialogues: {
     intro:        'Kamu... hanya semut kecil di hadapanku.',
     afterAttack:  'Seranganmu? Seperti angin. Kamu hanya semut kecil di hadapanku.',
     beforeGamble: 'Mari bermain, semut kecil. Satu warna membawa berkah, satu membawa kematian. Pilih.'
   },
-  blueRewards: {
-    statPoints: 20,   // per team member
-    gems: 1000,
-    stageSkip: 2
-  }
+  blueRewards: { statPoints: 20, gems: 1000, stageSkip: 2 }
 };
+
+// ==========================================
+// BOSS RUSH DATA & RIDDLES (Teka-teki)
+// ==========================================
+const BOSS_RUSH_POOL = [
+  {
+    id: 'br_fire',
+    name: 'Frost Titan',
+    emoji: '🧊',
+    element: 'water',
+    riddle: "Beku membeku membeku... Api kedinginan. Hanya nyala api dari awal mula yang bisa mencairkan kebenciannya.",
+    hint: "Syarat: Bawa setidaknya 1 karakter berelemen Api (Fire) ke dalam tim.",
+    condition: (allies, boss) => allies.some(a => a.element === 'fire'),
+    failMsg: "Boss kebal! Seranganmu membeku sebelum menyentuhnya."
+  },
+  {
+    id: 'br_nox',
+    name: 'Echo of the Future',
+    emoji: '🌑',
+    element: 'dark',
+    riddle: "Untuk mengalahkan masa depan, kau harus membawa pedang dari masa kini. Pedang sejati yang menembus takdir.",
+    hint: "Syarat: Karakter Nox HARUS ada di dalam tim.",
+    condition: (allies, boss) => allies.some(a => a.charId === 'nox'),
+    failMsg: "Seranganmu menembus ruang hampa. Sosok itu tidak terluka."
+  },
+  {
+    id: 'br_spd',
+    name: 'Blink Assassin',
+    emoji: '💨',
+    element: 'wind',
+    riddle: "Kau tidak bisa memukul angin. Kau terlalu lambat. Hanya yang mampu mengejar badai yang bisa melihat wujud aslinya.",
+    hint: "Syarat: Rata-rata SPD tim kamu harus di atas 150.",
+    condition: (allies, boss) => {
+      const avgSpd = allies.reduce((sum, a) => sum + a.spd, 0) / allies.length;
+      return avgSpd >= 150;
+    },
+    failMsg: "Boss menghindar dengan kecepatan cahaya. Seranganmu meleset!"
+  },
+  {
+    id: 'br_potion',
+    name: 'Vampire Lord',
+    emoji: '🦇',
+    element: 'dark',
+    riddle: "Darah adalah nyawanya. Jangan biarkan dia meminummu. Racuni dia dengan ramuan merah kehidupan.",
+    hint: "Syarat: Gunakan Health Potion selama pertarungan berlangsung.",
+    condition: (allies, boss) => Battle.potionUsedThisBattle,
+    failMsg: "Boss menyerap seranganmu! Gunakan item yang tepat untuk melawannya!"
+  },
+  {
+    id: 'br_tank',
+    name: 'Adamant Golem',
+    emoji: '🪨',
+    element: 'earth',
+    riddle: "Sebuah benteng berjalan. Palu godam tidak akan cukup. Kau butuh dinding yang lebih tebal dari dirinya untuk meremukkannya.",
+    hint: "Syarat: Harus ada karakter dengan DEF di atas 300 di dalam tim.",
+    condition: (allies, boss) => allies.some(a => a.def >= 300),
+    failMsg: "Seranganmu memantul! Armor Boss terlalu tebal untuk ditembus."
+  },
+  {
+    id: 'br_heal',
+    name: 'Cursed Mummy',
+    emoji: '🧟',
+    element: 'fire',
+    riddle: "Kutukan kuno membalikkan semua luka. Kau harus menjadi tabib untuk mengalahkannya.",
+    hint: "Syarat: Bawa karakter dengan Role Support (Healer).",
+    condition: (allies, boss) => allies.some(a => a.role === 'Support'),
+    failMsg: "Luka Boss langsung pulih! Hanya kehadiran tabib yang bisa menetralisir kutukan."
+  }
+];

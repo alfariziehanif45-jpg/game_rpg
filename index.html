@@ -7,11 +7,12 @@
   <meta name="color-scheme" content="dark">
   <title>RPG Gacha — Idle Heroes</title>
   <link rel="stylesheet" href="css/style.css">
-  <style>/* Boot fallback: cegah layar kosong bila CSS utama gagal dimuat di browser mobile */
+  <style>
     html,body{min-height:100%;background:#0a0c12;color:#f5f5f7}
     #startScreen{display:flex}
     #startScreen.hidden{display:none!important}
     #app{min-height:100vh}
+    body:has(.battle-overlay:not(.hidden)) #skillTreeFabBtn { display: none !important; }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#7c5cff">
@@ -43,6 +44,7 @@
     <button data-page="roster">📜 Karakter</button>
     <button data-page="team">🛡️ Tim</button>
     <button data-page="battle">⚔️ Bertarung</button>
+    <button data-page="bossrush">👑 Boss Rush</button> <!-- TAMBAHAN -->
     <button data-page="craft">⚒️ Crafting</button>
     <button data-page="shop">🛒 Toko</button>
   </nav>
@@ -64,7 +66,6 @@
         <p class="muted small">Api → Udara → Tanah → Air → Api. Cahaya ⇄ Kegelapan saling mengalahkan. Serangan elemen unggul memberi <b>+50% damage</b>, elemen lemah <b>-25%</b>.</p>
         <p class="muted small">💨 SPD menentukan urutan giliran. Semakin tinggi SPD, semakin cepat karakter mengeluarkan skill.</p>
         <p class="muted small">📊 Setiap level memberi <b>2 poin stat</b> (maks. 500 poin) untuk HP/ATK/DEF/SPD/CRIT.</p>
-        <p class="muted small">⏩ Skip stage dibatasi <b>20x per hari</b>.</p>
       </div>
       <button id="resetBtn" class="danger">🗑️ Reset Progres</button>
     </section>
@@ -102,13 +103,9 @@
     <section id="page-team" class="page">
       <h2>🛡️ Susun Tim <small class="muted">(maks 4)</small></h2>
       <div id="teamSlots" class="char-grid team-slots"></div>
-      
-      <!-- UI RELIC DI TIM -->
       <h3 style="margin-top:20px;">🔮 Relic Tim</h3>
       <div id="teamRelicSlot"></div>
-
       <h3 style="margin-top:20px;">Karakter Tersedia</h3>
-      
       <div class="filters-container">
         <div class="filter-group">
           <span class="filter-label">Role:</span>
@@ -132,17 +129,23 @@
           <button class="filter-btn" onclick="setTeamFilter('rarity', '5', this)">5★</button>
         </div>
       </div>
-
       <div id="teamRoster" class="char-grid"></div>
     </section>
 
- <!-- BATTLE -->
-<section id="page-battle" class="page">
-  <h2>⚔️ Pilih Stage</h2>
-  <div id="skipCounter" class="skip-counter"></div>
-  <div id="quickSkip"></div>
-  <div id="stageList" class="stage-list"></div>
-</section>
+    <!-- BATTLE -->
+    <section id="page-battle" class="page">
+      <h2>⚔️ Pilih Stage</h2>
+      <div id="skipCounter" class="skip-counter"></div>
+      <div id="quickSkip"></div>
+      <div id="stageList" class="stage-list"></div>
+    </section>
+
+    <!-- BOSS RUSH (TAMBAHAN) -->
+    <section id="page-bossrush" class="page">
+      <h2>👑 Boss Rush</h2>
+      <p class="muted">Taklukkan 500 lantai. Baca teka-teki, susun tim yang tepat, dan raih Gems!</p>
+      <div id="bossRushContent" class="stage-list" style="margin-top:20px;"></div>
+    </section>
 
     <!-- CRAFTING -->
     <section id="page-craft" class="page">
@@ -184,10 +187,8 @@
   <div id="allyRow" class="unit-row"></div>
   
   <div id="potionBar" class="potion-bar"></div>
-  
   <div id="actionBar" class="action-bar"></div>
 
-  <!-- QTE DODGE OVERLAY -->
   <div id="qte-container" class="qte-container hidden">
     <div class="qte-text">KLIK UNTUK MENGHINDAR!</div>
     <div id="qte-circle" class="qte-circle"></div>
@@ -202,13 +203,15 @@
 
 <script src="js/data.js"></script>
 <script src="js/player.js"></script>
+<script src="js/skilltree.js"></script>
 <script src="js/gacha.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/main.js"></script>
 <script src="js/evolve.js"></script>
 <script src="js/start.js"></script>
+<script src="js/skilltree-integration.js"></script>
+
 <script>
-// Mobile boot guard: jika terjadi error startup, tampilkan pesan yang jelas, bukan layar putih.
 window.addEventListener('error', function (event) {
   const start = document.getElementById('startScreen');
   if (start && (!document.getElementById('app') || getComputedStyle(document.getElementById('app')).display === 'none')) {
