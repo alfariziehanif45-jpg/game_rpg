@@ -7,6 +7,9 @@ const DEFEAT_PENALTY = {
   equipmentChance: 0.20  // 20% kemungkinan kehilangan 1 equipment yang TIDAK sedang dipakai
 };
 
+// Material yang bisa dipakai untuk membuat potion (bahan utama potion)
+const POTION_MATERIALS = ['herb', 'crystal', 'blood'];
+
 const Battle = {
   active: false,
   stageId: 1,
@@ -106,6 +109,66 @@ const Battle = {
     this.log(`⚔️ Pertarungan dimulai! Stage ${stageId}`);
     this.render();
     this.processTurn();
+  },
+
+  // ==========================================
+  // SKIP BATTLE — selesaikan stage TANPA bertarung
+  // Memberi reward: Gold, EXP, Material (termasuk bahan potion), Equipment
+  // Bisa dipanggil dari tombol "Skip" di UI: Battle.skipBattle(stageId)
+  // ==========================================
+  skipBattle(stageId) {
+    if (this.active) {
+      console.warn('⛔ Tidak bisa skip saat battle sedang berlangsung.');
+      return null;
+    }
+
+    if (!Player || !Player.data) return null;
+
+    // Hitung sebagai battle yang diselesaikan (agar progres & counter konsisten)
+    Player.data.battleCount = (Player.data.battleCount || 0) + 1;
+
+    const multiplier = stageId * 1.5;
+    const expReward = Math.floor(50 * multiplier);
+    const goldReward = Math.floor(100 * multiplier);
+
+    Player.addGold(goldReward);
+
+    // EXP untuk seluruh tim
+    Player.getTeamUnits().forEach(u => {
+      const inst = Player.getInstance(u.uid);
+      if (inst) Player.addExp(inst, expReward);
+    });
+
+    const rewards = { materials: [], equipment: null, matDrop: null };
+
+    // ===== Material Drop (termasuk bahan potion) =====
+    const matDrop = this.rollMaterialDrop(stageId);
+    if (matDrop) {
+      Player.addMaterial(matDrop.matId, matDrop.count);
+      rewards.materials.push(matDrop);
+      rewards.matDrop = matDrop;
+    }
+
+    // ===== Equipment Drop =====
+    const eqDrop = this.rollEquipmentDrop(stageId);
+    if (eqDrop) {
+      Player.addEquipment(eqDrop);
+      rewards.equipment = eqDrop;
+    }
+
+    // ===== Selesaikan stage =====
+    Player.completeStage(stageId);
+    Player.save();
+
+    if (typeof window.renderAll === 'function') window.renderAll();
+
+    return {
+      stageId,
+      goldReward,
+      expReward,
+      rewards,
+      nextStage: stageId + 1
+    };
   },
 
   _buildAllies() {
@@ -1241,21 +1304,37 @@ const Battle = {
     return false;
   },
 
+  // ==========================================
+  // MATERIAL DROP — bahan potion (herb, crystal, blood) & material langka
+  // Dipakai oleh end(true) DAN skipBattle()
+  // ==========================================
   rollMaterialDrop(stageId) {
-    if (stageId >= 2 && stageId < 70) {
-      if (Math.random() < 0.5) { 
-        const mats = ['herb', 'crystal', 'blood'];
-        const chosen = mats[Math.floor(Math.random() * mats.length)];
-        return { matId: chosen, count: 1 };
+    // ===== Stage 1–69: bahan potion umum =====
+    if (stageId >= 1 && stageId < 70) {
+      // 70% peluang dapat bahan potion (minimal 1)
+      if (Math.random() < 0.70) {
+        const chosen = POTION_MATERIALS[Math.floor(Math.random() * POTION_MATERIALS.length)];
+        const count = Math.random() < 0.25 ? 2 : 1; // 25% chance dapat 2
+        return { matId: chosen, count };
       }
     }
+
+    // ===== Stage 70+: material langka + bahan potion =====
     if (stageId >= 70) {
-      if (Math.random() < 0.01) { 
-        const mats = ['feather', 'horn'];
-        const chosen = mats[Math.floor(Math.random() * mats.length)];
+      const roll = Math.random();
+      // 4% material langka (feather/horn)
+      if (roll < 0.04) {
+        const chosen = ['feather', 'horn'][Math.floor(Math.random() * 2)];
         return { matId: chosen, count: 1 };
       }
+      // 45% bahan potion (dengan bonus count)
+      if (roll < 0.49) {
+        const chosen = POTION_MATERIALS[Math.floor(Math.random() * POTION_MATERIALS.length)];
+        const count = Math.random() < 0.40 ? 2 : 1;
+        return { matId: chosen, count };
+      }
     }
+
     return null;
   },
 
@@ -1306,22 +1385,18 @@ const Battle = {
   // ==========================================
   // PENALTI KALAH (TIDAK RESET — hanya kehilangan item)
   // ==========================================
-
-  // Cari penyimpanan material di Player.data (menyesuaikan nama properti yang ada)
   _getMaterialStore() {
     const d = Player.data || {};
     const candidates = [d.materials, d.mats, d.materialInventory, d.inventoryMaterials];
     return candidates.find(s => s && typeof s === 'object' && !Array.isArray(s)) || null;
   },
 
-  // Cari array inventori equipment di Player.data
   _getEquipList() {
     const d = Player.data || {};
     const candidates = [d.equipment, d.equipInventory, d.equipments, d.inventory, d.equips];
     return candidates.find(s => Array.isArray(s)) || null;
   },
 
-  // Cek apakah equipment sedang dipakai karakter manapun
   _isEquipmentInUse(eqId) {
     try {
       const needle = `"${eqId}"`;
@@ -1424,13 +1499,15 @@ const Battle = {
       });
 
       let dropHtml = '';
+      // Material drop — termasuk bahan potion (herb, crystal, blood)
       const matDrop = this.rollMaterialDrop(this.stageId);
       if (matDrop) {
         Player.addMaterial(matDrop.matId, matDrop.count);
-        const matData = MATERIALS[matDrop.matId];
+        const matData = (typeof MATERIALS !== 'undefined' && MATERIALS[matDrop.matId]) || { name: matDrop.matId, emoji: '📦' };
+        const isPotionMat = POTION_MATERIALS.includes(matDrop.matId);
         dropHtml += `
           <div style="margin-top: 10px; padding: 8px; background: rgba(0,255,0,0.1); border-radius: 8px; border-left: 4px solid #3ddc84;">
-            <span style="color: #3ddc84; font-weight: bold;">🌿 Material Drop!</span>
+            <span style="color: #3ddc84; font-weight: bold;">${isPotionMat ? '🧪 Bahan Potion Drop!' : '🌿 Material Drop!'}</span>
             <div style="font-size: 0.9rem; margin-top: 4px;">${matData.emoji} <b>${matData.name}</b> x${matDrop.count}</div>
           </div>
         `;
